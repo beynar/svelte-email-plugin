@@ -2,7 +2,13 @@
 
 All notable changes to `svelte-email-kit` are documented here. This project adheres to [Semantic Versioning](https://semver.org/).
 
-## 0.1.0 — unreleased
+## 0.1.1 — 2026-06-17
+
+### Changed
+
+- First release published via GitHub Actions **trusted publishing** (npm OIDC) with build **provenance**. No functional changes from `0.1.0`.
+
+## 0.1.0 — 2026-06-17
 
 Initial release: a Svelte 5 port of [react-email](https://github.com/resend/react-email) for building and rendering email-safe HTML emails.
 
