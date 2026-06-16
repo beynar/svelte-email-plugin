@@ -4,7 +4,33 @@ import { extractClasses } from './extract-classes.js';
 import { generateTailwindMap } from '../internal/tailwind/generate-map.js';
 import { bakeTailwind } from './bake-tailwind.js';
 import { generateIndex } from './generate-index.js';
+import { normalizeEmail, DEFAULT_REMAP_TABLE, type NormalizeOptions } from './normalize.js';
 import { startPreviewServer } from './preview-server.js';
+
+/** The default module specifier for the generated registry + injected imports. */
+const DEFAULT_IMPORT_SOURCE = 'svelte-email-kit';
+
+/**
+ * Resolve the `forgiving` option (boolean | object | undefined) into a concrete
+ * {@link NormalizeOptions}. Forgiveness is **on by default**; the object form
+ * toggles `wrap`/`remap` and merges `remap.tags` over the built-in table.
+ */
+function resolveForgiving(
+	forgiving: SvelteMailPluginOptions['forgiving'],
+	importSource: string
+): NormalizeOptions {
+	if (forgiving === false) {
+		return { wrap: false, remap: false, remapTable: DEFAULT_REMAP_TABLE, importSource };
+	}
+	if (forgiving === undefined || forgiving === true) {
+		return { wrap: true, remap: true, remapTable: DEFAULT_REMAP_TABLE, importSource };
+	}
+	const wrap = forgiving.wrap ?? true;
+	const remap = forgiving.remap !== false;
+	const tags = typeof forgiving.remap === 'object' ? forgiving.remap.tags : undefined;
+	const remapTable = tags ? { ...DEFAULT_REMAP_TABLE, ...tags } : DEFAULT_REMAP_TABLE;
+	return { wrap, remap, remapTable, importSource };
+}
 
 /**
  * Options for {@link svelteMail}.
@@ -26,6 +52,33 @@ export interface SvelteMailPluginOptions {
 	 * `@import`/`@plugin` directives.
 	 */
 	tailwind?: { css?: string };
+	/**
+	 * Module specifier the generated registry and any auto-injected component
+	 * imports point at. Defaults to the package name (`'svelte-email-kit'`). Set
+	 * to `'$lib/index.js'` when dogfooding inside this repo so injected imports
+	 * resolve through the `$lib` alias.
+	 */
+	importSource?: string;
+	/**
+	 * "Forgiveness" — let emails be authored loosely and fix them up at build time.
+	 * On by default. Two parts, both toggleable:
+	 *
+	 * - **wrap**: inject missing `<Html>`/`<Head>`/`<Body>` so every email is a
+	 *   complete document (and a `<Head>` always exists to hoist variant rules into).
+	 * - **remap**: rewrite native tags (`section`, `p`, `hr`, `a`, `img`, `h1`–`h6`,
+	 *   `div`→`Container`, …) into the library components, pulling in their
+	 *   email-safe defaults and the needed imports automatically.
+	 *
+	 * `true` (or omitted) enables both; `false` disables both. The object form
+	 * toggles each part; `remap.tags` overrides/extends the built-in table
+	 * (`{ table: 'Section' }` to opt a tag in, `{ a: false }` to opt one out).
+	 */
+	forgiving?:
+		| boolean
+		| {
+				wrap?: boolean;
+				remap?: boolean | { tags?: Record<string, string | false> };
+		  };
 	/**
 	 * In `vite dev`, also launch a standalone email preview server that lists and
 	 * renders every email in `dir` (with live-reload on change).
@@ -87,6 +140,11 @@ export function svelteMail(options: SvelteMailPluginOptions = {}): import('vite'
 	/** Absolute path of the generated registry file, resolved in `configResolved`. */
 	let resolvedIndex = '';
 
+	const importSource = options.importSource ?? DEFAULT_IMPORT_SOURCE;
+	/** Resolved forgiveness behavior (static for the plugin's lifetime). */
+	const forgive = resolveForgiving(options.forgiving, importSource);
+	const forgivenessEnabled = forgive.wrap || forgive.remap;
+
 	/**
 	 * Regenerate `<dir>/index.ts` from the current `.svelte` files in the folder.
 	 *
@@ -106,7 +164,7 @@ export function svelteMail(options: SvelteMailPluginOptions = {}): import('vite'
 			.map((entry) => entry.name)
 			.filter((name) => name.endsWith('.svelte') && name !== indexBase);
 
-		const source = generateIndex(fileNames);
+		const source = generateIndex(fileNames, { importSource });
 
 		// Compare with the existing file; skip the write when unchanged so the
 		// watcher isn't woken by our own output.
@@ -199,7 +257,18 @@ export function svelteMail(options: SvelteMailPluginOptions = {}): import('vite'
 			const inside = relative !== '' && !relative.startsWith('..') && !path.isAbsolute(relative);
 			if (!inside) return;
 
-			const { classes, dynamic } = extractClasses(code, filename);
+			// Forgiveness pass: remap native tags → components and inject missing
+			// Html/Head/Body (+ the imports they need) before anything else sees the
+			// source. The Tailwind bake then runs on this normalized string.
+			let source = code;
+			let normalized = false;
+			if (forgivenessEnabled) {
+				const result = normalizeEmail(code, filename, forgive);
+				source = result.code;
+				normalized = result.changed;
+			}
+
+			const { classes, dynamic } = extractClasses(source, filename);
 
 			// Enforcement: a non-literal/dynamic class expression can't be statically
 			// analyzed, so its tokens aren't in the precomputed map and would silently
@@ -208,7 +277,7 @@ export function svelteMail(options: SvelteMailPluginOptions = {}): import('vite'
 			// the Vite build/dev with this file in context — the desired behavior.
 			if (dynamic.length > 0) {
 				const lines = dynamic.map((d) => {
-					const where = typeof d.start === 'number' ? locate(code, d.start) : undefined;
+					const where = typeof d.start === 'number' ? locate(source, d.start) : undefined;
 					const at = where ? ` at ${where.line}:${where.column}` : '';
 					return `  - "${d.expression}"${at}`;
 				});
@@ -221,8 +290,9 @@ export function svelteMail(options: SvelteMailPluginOptions = {}): import('vite'
 				);
 			}
 
-			// No literal classes → bake would be a no-op; skip the Tailwind compile.
-			if (classes.length === 0) return;
+			// No literal classes → the Tailwind bake would be a no-op. Still emit the
+			// forgiveness-normalized source when it changed; otherwise skip entirely.
+			if (classes.length === 0) return normalized ? { code: source } : undefined;
 
 			const map = await generateTailwindMap(classes, { css: options.tailwind?.css });
 
@@ -239,7 +309,7 @@ export function svelteMail(options: SvelteMailPluginOptions = {}): import('vite'
 				);
 			}
 
-			const baked = bakeTailwind(code, map, filename);
+			const baked = bakeTailwind(source, map, filename);
 
 			// `bakeTailwind` returns a baked string only (no sourcemap). Returning just
 			// `code` is acceptable per the plan; vite-plugin-svelte regenerates the map

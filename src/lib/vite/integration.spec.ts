@@ -34,14 +34,16 @@ const PROBE = (color: string) =>
  * before `vite-plugin-svelte`, so `transformRequest` returns the compiled JS of
  * a *baked* email. Middleware mode + no HMR/watch keeps it headless and fast.
  */
-async function makeServer(): Promise<ViteDevServer> {
+async function makeServer(
+	options: Parameters<typeof svelteMail>[0] = { dir: 'src/emails', forgiving: false }
+): Promise<ViteDevServer> {
 	return createServer({
 		configFile: false,
 		root: ROOT,
 		logLevel: 'silent',
 		server: { middlewareMode: true, hmr: false, watch: null },
 		resolve: { alias: { $lib: path.join(ROOT, 'src/lib') } },
-		plugins: [svelteMail({ dir: 'src/emails' }), svelte()]
+		plugins: [svelteMail(options), svelte()]
 	});
 }
 
@@ -102,6 +104,57 @@ describe('svelteMail — baked render through Vite', () => {
 
 				expect(second!.code).toContain('rgb(0, 201, 80)'); // green-500
 				expect(second!.code).not.toContain('rgb(251, 44, 54)'); // old red gone
+			} finally {
+				await server.close();
+			}
+		}
+	);
+});
+
+/**
+ * A fully "loose" email: native tags only, no `<Html>/<Head>/<Body>`, no script,
+ * no imports. Forgiveness must remap every tag, inject the wrappers, inject the
+ * imports (from `$lib`), and the result must still compile through Svelte.
+ */
+const FORGIVING_PROBE =
+	`<section class="text-red-500 sm:text-lg">\n` +
+	`\t<h1 class="px-5">Hi</h1>\n` +
+	`\t<p>body</p>\n` +
+	`\t<hr>\n` +
+	`</section>\n`;
+
+describe('svelteMail — forgiving baked render through Vite', () => {
+	const probePath = path.join(EMAILS_DIR, '_it_forgiving.svelte');
+	const probeId = '/src/emails/_it_forgiving.svelte';
+
+	afterEach(() => {
+		fs.rmSync(probePath, { force: true });
+	});
+
+	it(
+		'remaps native tags, injects wrappers + imports, and compiles',
+		{ timeout: 60_000 },
+		async () => {
+			fs.writeFileSync(probePath, FORGIVING_PROBE);
+			const server = await makeServer({
+				dir: 'src/emails',
+				forgiving: true,
+				importSource: '$lib/index.js'
+			});
+			try {
+				const result = await server.transformRequest(probeId);
+				// A truthy result proves slash-injection (<hr> → <Hr/>) + import injection
+				// produced compilable Svelte (the real compiler ran).
+				expect(result).toBeTruthy();
+				const code = result!.code;
+
+				expect(code).toContain('rgb(251, 44, 54)'); // text-red-500 inlined
+				expect(code).toContain('padding-left:20px'); // px-5 inlined
+				expect(code).toContain('@media (min-width: 640px)'); // sm: hoisted into injected <Head>
+
+				// Runtime purity preserved.
+				expect(code).not.toContain('tailwindcss');
+				expect(code).not.toContain('postcss');
 			} finally {
 				await server.close();
 			}

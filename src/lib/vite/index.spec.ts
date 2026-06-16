@@ -125,18 +125,24 @@ describe('svelteMail — scoping', () => {
 	});
 
 	it('returns nullish for a static email with no recognizable classes', async () => {
-		const out = await runTransform(svelteMail(), '<a class="">x</a>', emailId('empty.svelte'));
+		// forgiving off so the bare element isn't remapped/wrapped (which would emit).
+		const out = await runTransform(
+			svelteMail({ forgiving: false }),
+			'<a class="">x</a>',
+			emailId('empty.svelte')
+		);
 		expect(out).toBeFalsy();
 	});
 });
 
 describe('svelteMail — enforcement (dynamic classes)', () => {
+	// forgiving off so reported line:column reflects the un-normalized source.
 	it('throws on a composed class expression, naming the file, expression, and line:column', async () => {
 		const code = `<a class={'bg-' + color}>x</a>`;
 		const id = emailId('compose.svelte');
 		let error: Error | undefined;
 		try {
-			await runTransform(svelteMail(), code, id);
+			await runTransform(svelteMail({ forgiving: false }), code, id);
 		} catch (e) {
 			error = e as Error;
 		}
@@ -163,13 +169,96 @@ describe('svelteMail — enforcement (dynamic classes)', () => {
 		const code = ['<div>', '  <span>hi</span>', `  <a class={dynClass}>x</a>`, '</div>'].join('\n');
 		let error: Error | undefined;
 		try {
-			await runTransform(svelteMail(), code, emailId('multiline.svelte'));
+			await runTransform(svelteMail({ forgiving: false }), code, emailId('multiline.svelte'));
 		} catch (e) {
 			error = e as Error;
 		}
 		expect(error).toBeInstanceOf(Error);
 		// `dynClass` is on line 3; `  <a class={` is 12 chars, so column 13 (1-based).
 		expect(error!.message).toContain('"dynClass" at 3:13');
+	});
+});
+
+describe('svelteMail — forgiving', () => {
+	it('wraps and remaps a bare email, then bakes (default on)', async () => {
+		const out = await runTransform(
+			svelteMail(),
+			'<p class="text-red-500">x</p>',
+			emailId('loose.svelte')
+		);
+		expect(out).toBeTruthy();
+		// <p> → <Text>, class baked to inline style, full document + imports.
+		expect(out!.code).toContain('<Text style="color:rgb(251, 44, 54);">x</Text>');
+		expect(out!.code).toContain('<Html lang="en" dir="ltr">');
+		expect(out!.code).toContain('<Head');
+		expect(out!.code).toContain('<Body>');
+		expect(out!.code).toContain(`from 'svelte-email-kit';`);
+	});
+
+	it('auto-Head lets a variant class hoist with no authored <Head> (no throw)', async () => {
+		// `sm:text-lg` previously threw "email has no <Head>"; the injected Head fixes it.
+		const out = await runTransform(
+			svelteMail(),
+			'<div class="sm:text-lg">x</div>',
+			emailId('variant.svelte')
+		);
+		expect(out).toBeTruthy();
+		expect(out!.code).toContain('@media (min-width: 640px)');
+		expect(out!.code).toContain('<Head');
+		expect(out!.code).toContain('<Container');
+	});
+
+	it('forgiving:false is the un-normalized bake (no wrap, no remap)', async () => {
+		const out = await runTransform(
+			svelteMail({ forgiving: false }),
+			STATIC_EMAIL,
+			emailId('strict.svelte')
+		);
+		expect(out).toBeTruthy();
+		expect(out!.code).toBe(
+			'<a style="color:rgb(251, 44, 54);background-color:rgb(43, 127, 255);">x</a>'
+		);
+		expect(out!.code).not.toContain('<Html');
+		expect(out!.code).not.toContain('<Link');
+	});
+
+	it('injects imports from a custom importSource', async () => {
+		const out = await runTransform(
+			svelteMail({ importSource: 'my-emails' }),
+			'<p>x</p>',
+			emailId('src.svelte')
+		);
+		expect(out).toBeTruthy();
+		expect(out!.code).toContain(`from 'my-emails';`);
+	});
+
+	it('still throws on a dynamic class even on a remapped tag', async () => {
+		await expect(
+			runTransform(svelteMail(), '<p class={bad}>x</p>', emailId('dyn.svelte'))
+		).rejects.toThrow(/dynamic class expression/);
+	});
+
+	it('remap:false wraps but keeps native tags', async () => {
+		const out = await runTransform(
+			svelteMail({ forgiving: { remap: false } }),
+			'<p class="text-red-500">x</p>',
+			emailId('nowrap.svelte')
+		);
+		expect(out).toBeTruthy();
+		expect(out!.code).toContain('<Body>');
+		expect(out!.code).toContain('<p style="color:rgb(251, 44, 54);">x</p>'); // still native <p>
+		expect(out!.code).not.toContain('<Text');
+	});
+
+	it('wrap:false remaps but does not inject Html/Head/Body', async () => {
+		const out = await runTransform(
+			svelteMail({ forgiving: { wrap: false } }),
+			'<p class="text-red-500">x</p>',
+			emailId('noremapwrap.svelte')
+		);
+		expect(out).toBeTruthy();
+		expect(out!.code).toContain('<Text style="color:rgb(251, 44, 54);">x</Text>');
+		expect(out!.code).not.toContain('<Html');
 	});
 });
 

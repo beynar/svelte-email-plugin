@@ -8,7 +8,9 @@ import { svelteMail } from './src/lib/vite/index.js';
 
 export default defineConfig({
 	plugins: [
-		svelteMail({ dir: 'src/emails', preview: { enabled: true } }),
+		// Dogfood: `importSource: '$lib/index.js'` so auto-injected component imports
+		// (and the generated registry) resolve through the repo's own `$lib` alias.
+		svelteMail({ dir: 'src/emails', importSource: '$lib/index.js', preview: { enabled: true } }),
 		sveltekit({
 			compilerOptions: {
 				// Force runes mode for the project, except for libraries. Can be removed in svelte 6.
