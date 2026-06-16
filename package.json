@@ -1,6 +1,7 @@
 {
 	"name": "svelte-email-kit",
 	"version": "0.1.1",
+	"packageManager": "pnpm@10.32.1",
 	"description": "A Svelte 5 port of react-email — build and render email-safe HTML emails with Svelte components.",
 	"license": "MIT",
 	"author": "beynar <arnaud@derbey.dev>",
