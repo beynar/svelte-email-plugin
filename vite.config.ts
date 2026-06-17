@@ -3,7 +3,7 @@ import adapter from '@sveltejs/adapter-cloudflare';
 import { sveltekit } from '@sveltejs/kit/vite';
 import tailwindcss from '@tailwindcss/vite';
 // Dogfood the build-time Tailwind plugin. Imported relatively (this *is* the
-// `svelte-email-kit` package) — `enforce: 'pre'` orders it before vite-plugin-svelte
+// `svelte-plugin-mail` package) — `enforce: 'pre'` orders it before vite-plugin-svelte
 // regardless of array position, so it bakes `src/emails/*.svelte` first.
 import { email } from './src/lib/vite/index.js';
 

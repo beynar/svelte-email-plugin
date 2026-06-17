@@ -19,7 +19,7 @@
 				</Heading>
 				<Text class="text-base text-slate-600">
 					These styles were authored as Tailwind utility classes and baked into inline styles by the <code
-						>svelte-email-kit/vite</code
+						>svelte-plugin-mail/vite</code
 					>
 					plugin at build time — the runtime is plain
 					<code>render()</code>, with no Tailwind in sight.

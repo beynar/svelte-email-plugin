@@ -1,5 +1,5 @@
 {
-	"name": "svelte-email-kit",
+	"name": "svelte-plugin-mail",
 	"version": "0.3.0",
 	"packageManager": "pnpm@10.32.1",
 	"description": "A Svelte 5 port of react-email — build and render email-safe HTML emails with Svelte components.",

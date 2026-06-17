@@ -10,7 +10,7 @@ import { startPreviewServer } from './preview-server.js';
 import { collectSvelteFiles } from './collect-emails.js';
 
 /** The default module specifier for the generated registry + injected imports. */
-const DEFAULT_IMPORT_SOURCE = 'svelte-email-kit';
+const DEFAULT_IMPORT_SOURCE = 'svelte-plugin-mail';
 
 /**
  * Resolve the `forgiving` option (boolean | object | undefined) into a concrete
@@ -62,7 +62,7 @@ export interface SvelteMailPluginOptions {
 	tailwind?: false | { entry?: string; css?: string };
 	/**
 	 * Module specifier the generated registry and any auto-injected component
-	 * imports point at. Defaults to the package name (`'svelte-email-kit'`). Set
+	 * imports point at. Defaults to the package name (`'svelte-plugin-mail'`). Set
 	 * to `'$lib/index.js'` when dogfooding inside this repo so injected imports
 	 * resolve through the `$lib` alias.
 	 */
@@ -100,7 +100,7 @@ export interface SvelteMailPluginOptions {
 }
 
 /**
- * The `svelte-email-kit` Vite plugin.
+ * The `svelte-plugin-mail` Vite plugin.
  *
  * An `enforce: 'pre'` `transform` that runs the bake pipeline
  * (extract → {@link generateTailwindMap} → {@link bakeTailwind}) on every
@@ -210,7 +210,7 @@ export function email(options: SvelteMailPluginOptions = {}): import('vite').Plu
 	}
 
 	return {
-		name: 'svelte-email-kit',
+		name: 'svelte-plugin-mail',
 		enforce: 'pre',
 
 		configResolved(config) {
@@ -269,7 +269,7 @@ export function email(options: SvelteMailPluginOptions = {}): import('vite').Plu
 					const previewPort = options.preview?.port ?? basePort + 1;
 					const previewServer = startPreviewServer(server, previewPort, resolvedDir);
 					server.config.logger.info(
-						`  \x1b[32m➜\x1b[39m  \x1b[1msvelte-email-kit\x1b[22m preview: \x1b[36mhttp://localhost:${previewPort}/\x1b[39m`
+						`  \x1b[32m➜\x1b[39m  \x1b[1msvelte-plugin-mail\x1b[22m preview: \x1b[36mhttp://localhost:${previewPort}/\x1b[39m`
 					);
 					httpServer.once('close', () => previewServer.close());
 				};
@@ -315,7 +315,7 @@ export function email(options: SvelteMailPluginOptions = {}): import('vite').Plu
 					return `  - "${d.expression}"${at}`;
 				});
 				throw new Error(
-					`svelte-email-kit: ${filename} uses dynamic class expression(s) that can't be statically analyzed:\n` +
+					`svelte-plugin-mail: ${filename} uses dynamic class expression(s) that can't be statically analyzed:\n` +
 						`${lines.join('\n')}\n` +
 						`Only static and conditional-literal classes are supported ` +
 						`(e.g. class="bg-blue-500" or class={cond ? 'bg-red-500' : 'bg-blue-500'}). ` +
@@ -336,7 +336,7 @@ export function email(options: SvelteMailPluginOptions = {}): import('vite').Plu
 			const classesNotFound = classes.filter((cls) => !(cls in map.inline) && !(cls in map.rename));
 			if (classesNotFound.length > 0) {
 				console.warn(
-					`svelte-email-kit: ${filename} has class token(s) not recognized as Tailwind utilities ` +
+					`svelte-plugin-mail: ${filename} has class token(s) not recognized as Tailwind utilities ` +
 						`(left as-is): ${classesNotFound.join(', ')}. ` +
 						`Ignore this if they're intentional non-Tailwind classes; otherwise check for typos.`
 				);
