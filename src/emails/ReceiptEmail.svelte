@@ -68,8 +68,8 @@
 
 <Html lang="en" dir="ltr">
 	<Head />
-	<Preview children={`Your Acme receipt for order ${orderId}`} />
 	<Body style={main}>
+		<Preview children={`Your Acme receipt for order ${orderId}`} />
 		<Container style={container}>
 			<Section>
 				<Heading as="h1" style={heading}>Thanks for your order</Heading>

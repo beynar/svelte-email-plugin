@@ -35,8 +35,8 @@
 			}}
 		/>
 	</Head>
-	<Preview children="HIDDEN_PREVIEW_TEXT — welcome to svelte-email-kit." />
 	<Body style={{ backgroundColor: '#ffffff', fontFamily: 'sans-serif' }}>
+		<Preview children="HIDDEN_PREVIEW_TEXT — welcome to svelte-email-kit." />
 		<Container>
 			<Section>
 				<Row>

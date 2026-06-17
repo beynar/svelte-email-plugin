@@ -65,4 +65,59 @@ describe('generateIndex', () => {
 		expect(out).toContain(`import { render } from '$lib/index.js';`);
 		expect(out).not.toContain(`from 'svelte-email-kit'`);
 	});
+
+	it('mirrors nested folders into nested objects', () => {
+		const out = generateIndex([
+			'auth/password/reset-password.svelte',
+			'auth/password/password-change.svelte',
+			'welcome.svelte'
+		]);
+		// Imports use the nested relative path.
+		expect(out).toContain(`import ResetPassword from './auth/password/reset-password.svelte';`);
+		expect(out).toContain(`import PasswordChange from './auth/password/password-change.svelte';`);
+		expect(out).toContain(`import Welcome from './welcome.svelte';`);
+		// Nested object shape: emails.auth.password.{resetPassword,passwordChange}.
+		expect(out).toContain('auth: {');
+		expect(out).toContain('password: {');
+		expect(out).toContain(
+			`resetPassword: (props: ComponentProps<typeof ResetPassword>) => render(ResetPassword, props)`
+		);
+		expect(out).toContain(
+			`passwordChange: (props: ComponentProps<typeof PasswordChange>) => render(PasswordChange, props)`
+		);
+		// Top-level entry sits beside the folder.
+		expect(out).toContain(
+			`welcome: (props: ComponentProps<typeof Welcome>) => render(Welcome, props)`
+		);
+	});
+
+	it('camelCases folder segments', () => {
+		const out = generateIndex(['order-emails/shipped.svelte']);
+		expect(out).toContain('orderEmails: {');
+		expect(out).toContain(`shipped: (props: ComponentProps<typeof Shipped>)`);
+		expect(out).toContain(`import Shipped from './order-emails/shipped.svelte';`);
+	});
+
+	it('keys the same file name in different folders independently (distinct idents)', () => {
+		const out = generateIndex(['a/welcome.svelte', 'b/welcome.svelte']);
+		expect(out).toContain(`import Welcome from './a/welcome.svelte';`);
+		expect(out).toContain(`import Welcome2 from './b/welcome.svelte';`);
+		expect(out).toContain('a: {');
+		expect(out).toContain('b: {');
+		// Same key `welcome` under each parent; different idents.
+		expect(out).toContain(
+			`welcome: (props: ComponentProps<typeof Welcome>) => render(Welcome, props)`
+		);
+		expect(out).toContain(
+			`welcome: (props: ComponentProps<typeof Welcome2>) => render(Welcome2, props)`
+		);
+		// Deterministic.
+		expect(generateIndex(['a/welcome.svelte', 'b/welcome.svelte'])).toBe(out);
+	});
+
+	it('normalizes backslash separators', () => {
+		const out = generateIndex(['auth\\reset.svelte']);
+		expect(out).toContain(`import Reset from './auth/reset.svelte';`);
+		expect(out).toContain('auth: {');
+	});
 });

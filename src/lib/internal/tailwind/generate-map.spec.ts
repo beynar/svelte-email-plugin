@@ -68,6 +68,9 @@ describe('generateTailwindMap (v4)', () => {
 		expect(rename['sm:text-lg']).toBe('sm_text-lg');
 		expect(hoist['sm_text-lg']).toContain('@media (min-width: 640px)');
 		expect(hoist['sm_text-lg']).toContain('font-size:18px');
+		// `!important` so the hoisted variant beats the inlined base utility on
+		// specificity (otherwise `text-base sm:text-lg` would never resize).
+		expect(hoist['sm_text-lg']).toContain('font-size:18px !important');
 		// stateful pseudo hoisted under its sanitized selector.
 		expect(hoist['hover_underline']).toContain(':hover');
 		// variant classes are NOT inlinable.
@@ -79,5 +82,30 @@ describe('generateTailwindMap (v4)', () => {
 	it('returns an empty map when there are no classes', async () => {
 		const map = await generateTailwindMap([]);
 		expect(map).toEqual({ inline: {}, rename: {}, hoist: {} });
+	});
+
+	it('resolves @property-registered vars instead of leaking var(--tw-*)', async () => {
+		// Tailwind v4 declares `--tw-border-style: solid` via `@property`; without
+		// seeding those defaults, `border` would inline `var(--tw-border-style)`,
+		// which email clients drop.
+		const { inline, hoist } = await generateTailwindMap(['border', 'border-dashed', 'divide-x']);
+		expect(inline['border']).toBe('border-style:solid;border-width:1px;');
+		expect(inline['border-dashed']).toBe('border-style:dashed;');
+		expect(hoist['divide-x']).toContain('border-inline-style:solid');
+		// No unresolved Tailwind internals leak anywhere in the output.
+		const all = JSON.stringify({ ...inline, ...hoist });
+		expect(all).not.toMatch(/var\(--tw-/);
+	});
+
+	it('resolves box-shadow utilities from their rule-local custom properties', async () => {
+		// `.shadow-lg`/`.ring-2` set `--tw-shadow`/`--tw-ring-shadow` in their own rule
+		// and consume it in `box-shadow`; resolve those locals (not the transparent
+		// `@property` default) and keep the shadow color's alpha.
+		const { inline } = await generateTailwindMap(['shadow-lg', 'ring-2']);
+		expect(inline['shadow-lg']).toContain('box-shadow:');
+		expect(inline['shadow-lg']).toContain('15px -3px rgba(0, 0, 0, 0.1)'); // not solid, not transparent
+		expect(inline['shadow-lg']).not.toMatch(/var\(--tw-/);
+		expect(inline['ring-2']).toContain('currentcolor'); // ring takes the element color
+		expect(inline['ring-2']).not.toMatch(/var\(--tw-/);
 	});
 });

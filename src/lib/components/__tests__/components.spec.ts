@@ -39,13 +39,17 @@ describe('Head', () => {
 
 describe('Body', () => {
 	it('renders the default markup', async () => {
-		expect(await renderToStaticString(Body)).toMatchInlineSnapshot(`"<body>content</body>"`);
+		expect(await renderToStaticString(Body)).toMatchInlineSnapshot(
+			`"<body dir="ltr" lang="en"><table border="0" width="100%" cellpadding="0" cellspacing="0" role="presentation" align="center"><tbody><tr><td dir="ltr" lang="en">content</td></tr></tbody></table></body>"`
+		);
 	});
 
 	it('applies a style object', async () => {
 		const html = await renderToStaticString(Body, { style: { backgroundColor: 'red' } });
 		expect(html).toContain('style="background-color:red;"');
-		expect(html).toMatchInlineSnapshot(`"<body style="background-color:red;">content</body>"`);
+		expect(html).toMatchInlineSnapshot(
+			`"<body dir="ltr" lang="en" style="background-color:red;"><table border="0" width="100%" cellpadding="0" cellspacing="0" role="presentation" align="center"><tbody><tr><td dir="ltr" lang="en" style="background-color:red;">content</td></tr></tbody></table></body>"`
+		);
 	});
 });
 
@@ -144,7 +148,7 @@ describe('Heading', () => {
 describe('Link', () => {
 	it('renders with the default link colors and target', async () => {
 		expect(await renderToStaticString(Link, { href: 'https://example.com' })).toMatchInlineSnapshot(
-			`"<a href="https://example.com" target="_blank" style="color:#067df7;text-decoration:none;">content</a>"`
+			`"<a href="https://example.com" target="_blank" style="color:#067df7;text-decoration-line:none;">content</a>"`
 		);
 	});
 
@@ -153,9 +157,9 @@ describe('Link', () => {
 			href: 'https://example.com',
 			style: { color: 'red' }
 		});
-		expect(html).toContain('color:#067df7;text-decoration:none;color:red;');
+		expect(html).toContain('color:#067df7;text-decoration-line:none;color:red;');
 		expect(html).toMatchInlineSnapshot(
-			`"<a href="https://example.com" target="_blank" style="color:#067df7;text-decoration:none;color:red;">content</a>"`
+			`"<a href="https://example.com" target="_blank" style="color:#067df7;text-decoration-line:none;color:red;">content</a>"`
 		);
 	});
 });

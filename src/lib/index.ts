@@ -1,7 +1,14 @@
 export { render, toPlainText, cleanSvelteMarkup } from './render.js';
 export type { RenderOptions, RenderResult } from './render.js';
 export type { CSSProperties, Margin, Style } from './types.js';
-export { styleToString, pxToPt, withMargin, parsePadding, mergeStyle } from './style.js';
+export {
+	styleToString,
+	pxToPt,
+	convertToPx,
+	withMargin,
+	parsePadding,
+	mergeStyle
+} from './style.js';
 
 export { default as Html } from './components/Html.svelte';
 export { default as Head } from './components/Head.svelte';

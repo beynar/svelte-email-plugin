@@ -60,6 +60,21 @@ describe('CodeBlock', () => {
 		expect(html).toContain('background:#000;');
 	});
 
+	it('protects every space run for Spark Mail (indentation + inside string tokens)', async () => {
+		// Leading indentation is between-token whitespace; the spaces inside the
+		// string literal are *inside* a Prism token — both must be replaced so Spark
+		// Mail (which collapses literal space runs even in <pre>) keeps them.
+		const html = await renderToStaticString(CodeBlock, {
+			code: 'function f() {\n  return "a  b";\n}',
+			language: 'javascript',
+			theme: xonokai
+		});
+		// The NBSP+ZWJ+ZWSP sequence is present…
+		expect(html).toContain(' ‍​');
+		// …and no run of two literal ASCII spaces survives anywhere in the markup.
+		expect(html).not.toContain('  ');
+	});
+
 	it('throws for an unknown language', async () => {
 		await expect(
 			renderToStaticString(CodeBlock, {

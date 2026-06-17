@@ -5,6 +5,7 @@ import { generateTailwindMap } from '../internal/tailwind/generate-map.js';
 import { bakeTailwind } from './bake-tailwind.js';
 import { generateIndex } from './generate-index.js';
 import { normalizeEmail, DEFAULT_REMAP_TABLE, type NormalizeOptions } from './normalize.js';
+import { detectTailwindConfig } from '../internal/tailwind/detect-config.js';
 import { startPreviewServer } from './preview-server.js';
 
 /** The default module specifier for the generated registry + injected imports. */
@@ -33,7 +34,33 @@ function resolveForgiving(
 }
 
 /**
- * Options for {@link svelteMail}.
+ * Recursively collect `.svelte` email paths under `dir`, relative to `baseDir`
+ * (POSIX separators). Recurses into sub-folders (skipping `node_modules` and
+ * dot-folders) so nested emails are discovered; the generated registry file is
+ * `.ts`, so it is never picked up.
+ */
+function collectEmailPaths(dir: string, baseDir: string): string[] {
+	const out: string[] = [];
+	let entries: fs.Dirent[];
+	try {
+		entries = fs.readdirSync(dir, { withFileTypes: true });
+	} catch {
+		return out;
+	}
+	for (const entry of entries) {
+		const abs = path.join(dir, entry.name);
+		if (entry.isDirectory()) {
+			if (entry.name === 'node_modules' || entry.name.startsWith('.')) continue;
+			out.push(...collectEmailPaths(abs, baseDir));
+		} else if (entry.isFile() && entry.name.endsWith('.svelte')) {
+			out.push(path.relative(baseDir, abs).split(path.sep).join('/'));
+		}
+	}
+	return out;
+}
+
+/**
+ * Options for {@link email}.
  */
 export interface SvelteMailPluginOptions {
 	/**
@@ -47,11 +74,17 @@ export interface SvelteMailPluginOptions {
 	 */
 	index?: string;
 	/**
-	 * Extra Tailwind v4 CSS-first config, forwarded to
-	 * {@link generateTailwindMap} as `{ css }` — e.g. a `@theme { … }` block or
-	 * `@import`/`@plugin` directives.
+	 * Tailwind v4 theme/config. By default the plugin **auto-detects** the project's
+	 * CSS entry (`src/app.css`-style, or a scan of `src/`) and feeds its `@theme` /
+	 * `@config` / `@plugin` config to the baker, so custom colors/fonts/spacing
+	 * resolve with no configuration.
+	 *
+	 * - omit it — auto-detect.
+	 * - `false` — skip detection; use the default Tailwind theme only.
+	 * - `{ entry }` — point detection at a specific CSS file.
+	 * - `{ css }` — pass CSS-first config inline (`@theme { … }`), skipping detection.
 	 */
-	tailwind?: { css?: string };
+	tailwind?: false | { entry?: string; css?: string };
 	/**
 	 * Module specifier the generated registry and any auto-injected component
 	 * imports point at. Defaults to the package name (`'svelte-email-kit'`). Set
@@ -134,7 +167,9 @@ function locate(source: string, offset: number): { line: number; column: number 
 	return { line, column: offset - lineStart + 1 };
 }
 
-export function svelteMail(options: SvelteMailPluginOptions = {}): import('vite').Plugin {
+export function email(options: SvelteMailPluginOptions = {}): import('vite').Plugin {
+	/** Vite root, resolved in `configResolved`. */
+	let root = '';
 	/** Absolute path of the emails folder, resolved in `configResolved`. */
 	let resolvedDir = '';
 	/** Absolute path of the generated registry file, resolved in `configResolved`. */
@@ -144,6 +179,30 @@ export function svelteMail(options: SvelteMailPluginOptions = {}): import('vite'
 	/** Resolved forgiveness behavior (static for the plugin's lifetime). */
 	const forgive = resolveForgiving(options.forgiving, importSource);
 	const forgivenessEnabled = forgive.wrap || forgive.remap;
+
+	/**
+	 * The Tailwind CSS-first config to compile against, resolved once and cached.
+	 * `false` disables it; an explicit `css` wins; otherwise the project's CSS entry
+	 * is auto-detected (see {@link detectTailwindConfig}).
+	 */
+	let tailwindCssPromise: Promise<string | undefined> | undefined;
+	function resolveTailwindCss(): Promise<string | undefined> {
+		if (!tailwindCssPromise) {
+			tailwindCssPromise = (async () => {
+				const t = options.tailwind;
+				if (t === false) return undefined;
+				if (t && t.css !== undefined) return t.css;
+				try {
+					const detected = await detectTailwindConfig(root, t?.entry);
+					if (detected) return detected.css;
+				} catch {
+					// Detection is best-effort: fall back to the default Tailwind theme.
+				}
+				return undefined;
+			})();
+		}
+		return tailwindCssPromise;
+	}
 
 	/**
 	 * Regenerate `<dir>/index.ts` from the current `.svelte` files in the folder.
@@ -157,14 +216,12 @@ export function svelteMail(options: SvelteMailPluginOptions = {}): import('vite'
 	function writeIndex(): void {
 		if (!resolvedDir || !fs.existsSync(resolvedDir)) return;
 
-		const indexBase = path.basename(resolvedIndex);
-		const fileNames = fs
-			.readdirSync(resolvedDir, { withFileTypes: true })
-			.filter((entry) => entry.isFile())
-			.map((entry) => entry.name)
-			.filter((name) => name.endsWith('.svelte') && name !== indexBase);
+		// Collect every `.svelte` email under `dir`, recursing into sub-folders, as
+		// paths relative to `dir` (POSIX separators). Nesting is mirrored in the
+		// generated registry (`emails.auth.password.resetPassword`).
+		const paths = collectEmailPaths(resolvedDir, resolvedDir);
 
-		const source = generateIndex(fileNames, { importSource });
+		const source = generateIndex(paths, { importSource });
 
 		// Compare with the existing file; skip the write when unchanged so the
 		// watcher isn't woken by our own output.
@@ -182,6 +239,7 @@ export function svelteMail(options: SvelteMailPluginOptions = {}): import('vite'
 		enforce: 'pre',
 
 		configResolved(config) {
+			root = config.root;
 			resolvedDir = path.resolve(config.root, options.dir ?? 'src/emails');
 			resolvedIndex = options.index
 				? path.resolve(config.root, options.index)
@@ -294,7 +352,7 @@ export function svelteMail(options: SvelteMailPluginOptions = {}): import('vite'
 			// forgiveness-normalized source when it changed; otherwise skip entirely.
 			if (classes.length === 0) return normalized ? { code: source } : undefined;
 
-			const map = await generateTailwindMap(classes, { css: options.tailwind?.css });
+			const map = await generateTailwindMap(classes, { css: await resolveTailwindCss() });
 
 			// Diagnostics: class tokens recognized as neither an inlinable utility
 			// (`map.inline`) nor a variant utility (`map.rename`) weren't resolved as
@@ -319,4 +377,4 @@ export function svelteMail(options: SvelteMailPluginOptions = {}): import('vite'
 	};
 }
 
-export default svelteMail;
+export default email;

@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import type { Plugin } from 'vite';
-import { svelteMail } from './index.js';
+import { email } from './index.js';
 
 /** A Vite root used to resolve `dir` into absolute paths in these tests. */
 const ROOT = '/project';
@@ -44,9 +44,9 @@ function emailId(file: string, root = ROOT): string {
 const STATIC_EMAIL = '<a class="text-red-500 bg-blue-500">x</a>';
 const DYNAMIC_EMAIL = `<a class={cond ? 'bg-red-500' : 'bg-blue-500'}>x</a>`;
 
-describe('svelteMail — plugin shape', () => {
+describe('email — plugin shape', () => {
 	it('exposes name, enforce, and a transform hook', () => {
-		const plugin = svelteMail();
+		const plugin = email();
 		expect(plugin.name).toBe('svelte-email-kit');
 		expect(plugin.enforce).toBe('pre');
 		// `transform` may be a function or an object hook — either is valid.
@@ -54,9 +54,9 @@ describe('svelteMail — plugin shape', () => {
 	});
 });
 
-describe('svelteMail — transform (bake)', () => {
+describe('email — transform (bake)', () => {
 	it('bakes a static-class email into resolved inline styles', async () => {
-		const out = await runTransform(svelteMail(), STATIC_EMAIL, emailId('welcome.svelte'));
+		const out = await runTransform(email(), STATIC_EMAIL, emailId('welcome.svelte'));
 		expect(out).toBeTruthy();
 		expect(out!.code).toContain(
 			'style="color:rgb(251, 44, 54);background-color:rgb(43, 127, 255);"'
@@ -65,7 +65,7 @@ describe('svelteMail — transform (bake)', () => {
 	});
 
 	it('injects the __tw helper for a dynamic-class email', async () => {
-		const out = await runTransform(svelteMail(), DYNAMIC_EMAIL, emailId('alert.svelte'));
+		const out = await runTransform(email(), DYNAMIC_EMAIL, emailId('alert.svelte'));
 		expect(out).toBeTruthy();
 		expect(out!.code).toContain('const __twMap = {');
 		expect(out!.code).toContain(`style={__twStyle((cond ? 'bg-red-500' : 'bg-blue-500'))}`);
@@ -73,7 +73,7 @@ describe('svelteMail — transform (bake)', () => {
 	});
 
 	it('forwards the tailwind.css option to the map generator', async () => {
-		const plugin = svelteMail({ tailwind: { css: '@theme { --color-brand: #6d28d9; }' } });
+		const plugin = email({ tailwind: { css: '@theme { --color-brand: #6d28d9; }' } });
 		const out = await runTransform(plugin, '<a class="text-brand">x</a>', emailId('brand.svelte'));
 		expect(out).toBeTruthy();
 		// Without the forwarded `@theme`, `text-brand` is unknown and would be left
@@ -83,10 +83,10 @@ describe('svelteMail — transform (bake)', () => {
 	});
 });
 
-describe('svelteMail — scoping', () => {
+describe('email — scoping', () => {
 	it('ignores a .svelte file outside the emails folder', async () => {
 		const out = await runTransform(
-			svelteMail(),
+			email(),
 			STATIC_EMAIL,
 			path.join(ROOT, 'src/routes/+page.svelte')
 		);
@@ -94,18 +94,18 @@ describe('svelteMail — scoping', () => {
 	});
 
 	it('ignores a non-.svelte file inside the emails folder', async () => {
-		const out = await runTransform(svelteMail(), STATIC_EMAIL, emailId('index.ts'));
+		const out = await runTransform(email(), STATIC_EMAIL, emailId('index.ts'));
 		expect(out).toBeFalsy();
 	});
 
 	it('ignores the emails folder path itself (dir is not its own child)', async () => {
-		const out = await runTransform(svelteMail(), STATIC_EMAIL, path.join(ROOT, 'src/emails'));
+		const out = await runTransform(email(), STATIC_EMAIL, path.join(ROOT, 'src/emails'));
 		expect(out).toBeFalsy();
 	});
 
 	it('strips a query suffix before matching', async () => {
 		const out = await runTransform(
-			svelteMail(),
+			email(),
 			STATIC_EMAIL,
 			`${emailId('welcome.svelte')}?svelte&type=style`
 		);
@@ -114,7 +114,7 @@ describe('svelteMail — scoping', () => {
 	});
 
 	it('respects a custom dir option', async () => {
-		const plugin = svelteMail({ dir: 'lib/mail' });
+		const plugin = email({ dir: 'lib/mail' });
 		// A file in the custom dir is baked…
 		const inside = await runTransform(plugin, STATIC_EMAIL, path.join(ROOT, 'lib/mail/x.svelte'));
 		expect(inside).toBeTruthy();
@@ -127,7 +127,7 @@ describe('svelteMail — scoping', () => {
 	it('returns nullish for a static email with no recognizable classes', async () => {
 		// forgiving off so the bare element isn't remapped/wrapped (which would emit).
 		const out = await runTransform(
-			svelteMail({ forgiving: false }),
+			email({ forgiving: false }),
 			'<a class="">x</a>',
 			emailId('empty.svelte')
 		);
@@ -135,14 +135,14 @@ describe('svelteMail — scoping', () => {
 	});
 });
 
-describe('svelteMail — enforcement (dynamic classes)', () => {
+describe('email — enforcement (dynamic classes)', () => {
 	// forgiving off so reported line:column reflects the un-normalized source.
 	it('throws on a composed class expression, naming the file, expression, and line:column', async () => {
 		const code = `<a class={'bg-' + color}>x</a>`;
 		const id = emailId('compose.svelte');
 		let error: Error | undefined;
 		try {
-			await runTransform(svelteMail({ forgiving: false }), code, id);
+			await runTransform(email({ forgiving: false }), code, id);
 		} catch (e) {
 			error = e as Error;
 		}
@@ -155,12 +155,12 @@ describe('svelteMail — enforcement (dynamic classes)', () => {
 
 	it('throws on a bare identifier class expression', async () => {
 		await expect(
-			runTransform(svelteMail(), '<a class={someClasses}>x</a>', emailId('bare.svelte'))
+			runTransform(email(), '<a class={someClasses}>x</a>', emailId('bare.svelte'))
 		).rejects.toThrow(/dynamic class expression/);
 	});
 
 	it('does NOT throw on a conditional-literal class (bakes via __twMap)', async () => {
-		const out = await runTransform(svelteMail(), DYNAMIC_EMAIL, emailId('cond.svelte'));
+		const out = await runTransform(email(), DYNAMIC_EMAIL, emailId('cond.svelte'));
 		expect(out).toBeTruthy();
 		expect(out!.code).toContain('const __twMap = {');
 	});
@@ -169,7 +169,7 @@ describe('svelteMail — enforcement (dynamic classes)', () => {
 		const code = ['<div>', '  <span>hi</span>', `  <a class={dynClass}>x</a>`, '</div>'].join('\n');
 		let error: Error | undefined;
 		try {
-			await runTransform(svelteMail({ forgiving: false }), code, emailId('multiline.svelte'));
+			await runTransform(email({ forgiving: false }), code, emailId('multiline.svelte'));
 		} catch (e) {
 			error = e as Error;
 		}
@@ -179,10 +179,10 @@ describe('svelteMail — enforcement (dynamic classes)', () => {
 	});
 });
 
-describe('svelteMail — forgiving', () => {
+describe('email — forgiving', () => {
 	it('wraps and remaps a bare email, then bakes (default on)', async () => {
 		const out = await runTransform(
-			svelteMail(),
+			email(),
 			'<p class="text-red-500">x</p>',
 			emailId('loose.svelte')
 		);
@@ -191,14 +191,14 @@ describe('svelteMail — forgiving', () => {
 		expect(out!.code).toContain('<Text style="color:rgb(251, 44, 54);">x</Text>');
 		expect(out!.code).toContain('<Html lang="en" dir="ltr">');
 		expect(out!.code).toContain('<Head');
-		expect(out!.code).toContain('<Body>');
+		expect(out!.code).toContain('<Body style="font-family:');
 		expect(out!.code).toContain(`from 'svelte-email-kit';`);
 	});
 
 	it('auto-Head lets a variant class hoist with no authored <Head> (no throw)', async () => {
 		// `sm:text-lg` previously threw "email has no <Head>"; the injected Head fixes it.
 		const out = await runTransform(
-			svelteMail(),
+			email(),
 			'<div class="sm:text-lg">x</div>',
 			emailId('variant.svelte')
 		);
@@ -210,7 +210,7 @@ describe('svelteMail — forgiving', () => {
 
 	it('forgiving:false is the un-normalized bake (no wrap, no remap)', async () => {
 		const out = await runTransform(
-			svelteMail({ forgiving: false }),
+			email({ forgiving: false }),
 			STATIC_EMAIL,
 			emailId('strict.svelte')
 		);
@@ -224,7 +224,7 @@ describe('svelteMail — forgiving', () => {
 
 	it('injects imports from a custom importSource', async () => {
 		const out = await runTransform(
-			svelteMail({ importSource: 'my-emails' }),
+			email({ importSource: 'my-emails' }),
 			'<p>x</p>',
 			emailId('src.svelte')
 		);
@@ -234,25 +234,25 @@ describe('svelteMail — forgiving', () => {
 
 	it('still throws on a dynamic class even on a remapped tag', async () => {
 		await expect(
-			runTransform(svelteMail(), '<p class={bad}>x</p>', emailId('dyn.svelte'))
+			runTransform(email(), '<p class={bad}>x</p>', emailId('dyn.svelte'))
 		).rejects.toThrow(/dynamic class expression/);
 	});
 
 	it('remap:false wraps but keeps native tags', async () => {
 		const out = await runTransform(
-			svelteMail({ forgiving: { remap: false } }),
+			email({ forgiving: { remap: false } }),
 			'<p class="text-red-500">x</p>',
 			emailId('nowrap.svelte')
 		);
 		expect(out).toBeTruthy();
-		expect(out!.code).toContain('<Body>');
+		expect(out!.code).toContain('<Body style="font-family:');
 		expect(out!.code).toContain('<p style="color:rgb(251, 44, 54);">x</p>'); // still native <p>
 		expect(out!.code).not.toContain('<Text');
 	});
 
 	it('wrap:false remaps but does not inject Html/Head/Body', async () => {
 		const out = await runTransform(
-			svelteMail({ forgiving: { wrap: false } }),
+			email({ forgiving: { wrap: false } }),
 			'<p class="text-red-500">x</p>',
 			emailId('noremapwrap.svelte')
 		);
@@ -262,12 +262,12 @@ describe('svelteMail — forgiving', () => {
 	});
 });
 
-describe('svelteMail — diagnostics (classesNotFound)', () => {
+describe('email — diagnostics (classesNotFound)', () => {
 	it('does not warn when all static classes are valid Tailwind utilities', async () => {
 		const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
 		try {
 			const out = await runTransform(
-				svelteMail(),
+				email(),
 				'<a class="text-red-500 px-5">x</a>',
 				emailId('valid.svelte')
 			);
@@ -282,7 +282,7 @@ describe('svelteMail — diagnostics (classesNotFound)', () => {
 		const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
 		try {
 			const out = await runTransform(
-				svelteMail(),
+				email(),
 				'<a class="text-red-500 totally-not-tailwind">x</a>',
 				emailId('mixed.svelte')
 			);
@@ -299,7 +299,7 @@ describe('svelteMail — diagnostics (classesNotFound)', () => {
 	});
 });
 
-describe('svelteMail — index codegen', () => {
+describe('email — index codegen', () => {
 	const tmpDirs: string[] = [];
 
 	afterEach(() => {
@@ -318,10 +318,32 @@ describe('svelteMail — index codegen', () => {
 		const dir = path.join(root, 'src/emails');
 		fs.mkdirSync(dir, { recursive: true });
 		for (const [name, content] of Object.entries(files)) {
-			fs.writeFileSync(path.join(dir, name), content);
+			const file = path.join(dir, name);
+			fs.mkdirSync(path.dirname(file), { recursive: true });
+			fs.writeFileSync(file, content);
 		}
 		return { root, dir };
 	}
+
+	it('discovers emails in nested folders and mirrors them in the registry', () => {
+		const { root, dir } = makeProject({
+			'welcome.svelte': '<a>x</a>',
+			'auth/password/reset-password.svelte': '<a>r</a>',
+			'auth/password/password-change.svelte': '<a>c</a>'
+		});
+		const plugin = email();
+		asFunction(plugin.configResolved).call({}, { root } as never);
+		runBuildStart(plugin);
+
+		const source = fs.readFileSync(path.join(dir, 'index.ts'), 'utf8');
+		expect(source).toContain(`import ResetPassword from './auth/password/reset-password.svelte';`);
+		expect(source).toContain('auth: {');
+		expect(source).toContain('password: {');
+		expect(source).toContain(
+			`resetPassword: (props: ComponentProps<typeof ResetPassword>) => render(ResetPassword, props)`
+		);
+		expect(source).toContain(`welcome: (props: ComponentProps<typeof Welcome>)`);
+	});
 
 	it('writes <dir>/index.ts with all emails on buildStart', () => {
 		const { root, dir } = makeProject({
@@ -329,7 +351,7 @@ describe('svelteMail — index codegen', () => {
 			'order-receipt.svelte': '<a>y</a>'
 		});
 
-		const plugin = svelteMail();
+		const plugin = email();
 		asFunction(plugin.configResolved).call({}, { root } as never);
 		runBuildStart(plugin);
 
@@ -346,7 +368,7 @@ describe('svelteMail — index codegen', () => {
 		const { root, dir } = makeProject({ 'welcome.svelte': '<a>x</a>' });
 		const indexPath = path.join(dir, 'index.ts');
 
-		const plugin = svelteMail();
+		const plugin = email();
 		asFunction(plugin.configResolved).call({}, { root } as never);
 		runBuildStart(plugin);
 
@@ -361,7 +383,7 @@ describe('svelteMail — index codegen', () => {
 
 	it('excludes the generated index file from its own registry', () => {
 		const { root, dir } = makeProject({ 'welcome.svelte': '<a>x</a>' });
-		const plugin = svelteMail();
+		const plugin = email();
 		asFunction(plugin.configResolved).call({}, { root } as never);
 		runBuildStart(plugin);
 
@@ -373,7 +395,7 @@ describe('svelteMail — index codegen', () => {
 	it('no-ops when the emails folder does not exist', () => {
 		const root = fs.mkdtempSync(path.join(os.tmpdir(), 'svelte-email-kit-'));
 		tmpDirs.push(root);
-		const plugin = svelteMail();
+		const plugin = email();
 		asFunction(plugin.configResolved).call({}, { root } as never);
 		// Should not throw despite the missing `src/emails` folder.
 		expect(() => runBuildStart(plugin)).not.toThrow();
@@ -382,7 +404,7 @@ describe('svelteMail — index codegen', () => {
 
 	it('honors a custom index output path', () => {
 		const { root } = makeProject({ 'welcome.svelte': '<a>x</a>' });
-		const plugin = svelteMail({ index: 'src/generated/emails.ts' });
+		const plugin = email({ index: 'src/generated/emails.ts' });
 		asFunction(plugin.configResolved).call({}, { root } as never);
 		runBuildStart(plugin);
 
@@ -391,5 +413,54 @@ describe('svelteMail — index codegen', () => {
 		expect(fs.readFileSync(customPath, 'utf8')).toContain(
 			`welcome: (props: ComponentProps<typeof Welcome>)`
 		);
+	});
+});
+
+describe('email — tailwind auto-detect', () => {
+	const tmpDirs: string[] = [];
+
+	afterEach(() => {
+		for (const dir of tmpDirs.splice(0)) fs.rmSync(dir, { recursive: true, force: true });
+	});
+
+	/** Temp root with a Tailwind entry and an emails folder; returns the root. */
+	function makeRoot(appCss: string | null): string {
+		const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sek-detect-'));
+		tmpDirs.push(root);
+		fs.mkdirSync(path.join(root, 'src/emails'), { recursive: true });
+		if (appCss !== null) fs.writeFileSync(path.join(root, 'src/app.css'), appCss);
+		return root;
+	}
+
+	async function transformAt(root: string, plugin: Plugin, code: string) {
+		asFunction(plugin.configResolved).call({}, { root } as never);
+		const transform = asFunction(plugin.transform);
+		return (await transform.call({} as never, code, path.join(root, 'src/emails/brand.svelte'))) as
+			| { code: string }
+			| null
+			| undefined;
+	}
+
+	it('bakes a custom-theme class by detecting src/app.css', async () => {
+		const root = makeRoot(`@import "tailwindcss";\n@theme { --color-brand: #6d28d9; }\n`);
+		const out = await transformAt(root, email({ forgiving: false }), '<a class="text-brand">x</a>');
+		expect(out!.code).toContain('style="color:#6d28d9;"');
+	});
+
+	it('skips detection (default theme only) when tailwind:false', async () => {
+		const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+		try {
+			const root = makeRoot(`@import "tailwindcss";\n@theme { --color-brand: #6d28d9; }\n`);
+			const out = await transformAt(
+				root,
+				email({ forgiving: false, tailwind: false }),
+				'<a class="text-brand">x</a>'
+			);
+			// Unknown utility → not inlined, left as a class.
+			expect(out!.code).not.toContain('#6d28d9');
+			expect(out!.code).toContain('class="text-brand"');
+		} finally {
+			warn.mockRestore();
+		}
 	});
 });

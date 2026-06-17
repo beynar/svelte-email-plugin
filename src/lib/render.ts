@@ -90,6 +90,9 @@ export async function toPlainText(
 		{ selector: '[data-skip-in-text="true"]', format: 'skip' }
 	];
 	return convert(html, {
+		// Off by default so long links/URLs aren't hard-wrapped at 80 cols; a caller
+		// can re-enable via `htmlToTextOptions`.
+		wordwrap: false,
 		...options,
 		selectors: [...defaultSelectors, ...(options?.selectors ?? [])]
 	});

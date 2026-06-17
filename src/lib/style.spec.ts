@@ -1,5 +1,13 @@
 import { describe, it, expect } from 'vitest';
-import { styleToString, pxToPt, parsePadding, withMargin, mergeStyle } from './style.js';
+import {
+	styleToString,
+	pxToPt,
+	convertToPx,
+	parsePadding,
+	withMargin,
+	mergeStyle,
+	splitBodyStyle
+} from './style.js';
 import type { CSSProperties } from './types.js';
 
 describe('styleToString', () => {
@@ -90,6 +98,21 @@ describe('parsePadding', () => {
 			paddingLeft: 12
 		});
 	});
+
+	it('converts non-px units instead of truncating them', () => {
+		expect(parsePadding('1em')).toEqual({
+			paddingTop: 16,
+			paddingRight: 16,
+			paddingBottom: 16,
+			paddingLeft: 16
+		});
+		expect(parsePadding('1em 2rem')).toEqual({
+			paddingTop: 16,
+			paddingRight: 32,
+			paddingBottom: 16,
+			paddingLeft: 32
+		});
+	});
 });
 
 describe('withMargin', () => {
@@ -109,12 +132,57 @@ describe('withMargin', () => {
 		expect(withMargin({ mt: 4 })).toEqual({ marginTop: '4px' });
 	});
 
-	it('returns the first shorthand that produces keys', () => {
-		expect(withMargin({ m: 16, mt: 4 })).toEqual({ margin: '16px' });
+	it('merges all shorthands, more-specific sides winning', () => {
+		expect(withMargin({ mt: 10, mb: 20 })).toEqual({ marginTop: '10px', marginBottom: '20px' });
+		expect(withMargin({ mx: 10, my: 20 })).toEqual({
+			marginLeft: '10px',
+			marginRight: '10px',
+			marginTop: '20px',
+			marginBottom: '20px'
+		});
+		expect(withMargin({ m: 5, mt: 10 })).toEqual({ margin: '5px', marginTop: '10px' });
+	});
+
+	it('emits non-numeric values (keywords/units) verbatim, without a px suffix', () => {
+		expect(withMargin({ mt: 'auto' } as never)).toEqual({ marginTop: 'auto' });
+		expect(withMargin({ mb: '2rem' } as never)).toEqual({ marginBottom: '2rem' });
 	});
 
 	it('returns an empty object when no shorthand is provided', () => {
 		expect(withMargin({})).toEqual({});
+	});
+});
+
+describe('convertToPx', () => {
+	it('passes through numbers and px', () => {
+		expect(convertToPx(12)).toBe(12);
+		expect(convertToPx('12px')).toBe(12);
+		expect(convertToPx('12')).toBe(12);
+	});
+
+	it('converts em/rem (×16) and % (of 600px)', () => {
+		expect(convertToPx('1em')).toBe(16);
+		expect(convertToPx('2rem')).toBe(32);
+		expect(convertToPx('10%')).toBe(60);
+	});
+
+	it('returns 0 for unparseable values', () => {
+		expect(convertToPx('auto')).toBe(0);
+		expect(convertToPx('')).toBe(0);
+	});
+});
+
+describe('splitBodyStyle', () => {
+	it('keeps background on the body and zeroes author margin/padding', () => {
+		expect(splitBodyStyle('background-color:#fff;margin:10px;font-size:14px')).toEqual({
+			body: 'background-color:#fff;margin:0;',
+			cell: 'background-color:#fff;margin:10px;font-size:14px'
+		});
+	});
+
+	it('zeroes padding too and leaves the body empty when no relevant props', () => {
+		expect(splitBodyStyle('padding:8px')).toEqual({ body: 'padding:0;', cell: 'padding:8px' });
+		expect(splitBodyStyle('font-size:14px')).toEqual({ body: '', cell: 'font-size:14px' });
 	});
 });
 

@@ -18,6 +18,11 @@
 
 	const finalStyles = $derived({ ...defaultStyles, ...markdownCustomStyles });
 
+	// Spark Mail collapses runs of literal spaces even inside `<pre>`/`<code>`, so
+	// code (block + inline) gets the NBSP+ZWJ+ZWSP treatment — same fix as CodeBlock.
+	const SPACE_REPLACEMENT = ' ‍​';
+	const sparkSafe = (text: string) => text.replaceAll(' ', SPACE_REPLACEMENT);
+
 	// Port of react-email's Markdown renderer. Each override injects an inline
 	// `style="…"` attribute only when the serialized CSS is non-empty, and keeps
 	// react-email's exact `\n` whitespace so output is faithful.
@@ -42,7 +47,7 @@
 		};
 
 		renderer.code = ({ text }) => {
-			const code = `${text.replace(/\n$/, '')}\n`;
+			const code = `${sparkSafe(text.replace(/\n$/, ''))}\n`;
 			return `<pre${
 				parseCssInJsToInlineCss(finalStyles.codeBlock) !== ''
 					? ` style="${parseCssInJsToInlineCss(finalStyles.codeBlock)}"`
@@ -55,7 +60,7 @@
 				parseCssInJsToInlineCss(finalStyles.codeInline) !== ''
 					? ` style="${parseCssInJsToInlineCss(finalStyles.codeInline)}"`
 					: ''
-			}>${text}</code>`;
+			}>${sparkSafe(text)}</code>`;
 		};
 
 		renderer.del = ({ tokens }) => {

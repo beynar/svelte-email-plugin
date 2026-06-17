@@ -2,6 +2,25 @@
 
 All notable changes to `svelte-email-kit` are documented here. This project adheres to [Semantic Versioning](https://semver.org/).
 
+## 0.2.0 — 2026-06-17
+
+### Changed
+
+- **`render()` now returns `[html, text]`** instead of a single HTML string — the plain-text alternative comes for free. Destructure at call sites: `const [html, text] = await render(…)`.
+- **The Vite plugin export is `email`** (was `svelteMail`): `import { email } from 'svelte-email-kit/vite'`.
+- `tailwindcss` and `postcss` are now **optional peer dependencies** (only needed when baking Tailwind classes), not direct deps.
+
+### Added
+
+- **Forgiveness mode** (on by default): inside the plugin's folder you can omit `<Html>`/`<Head>`/`<Body>` (they're injected) and author with native HTML tags (`<section>`, `<p>`, `<a>`, `<h1>`, …) that are remapped to components, with the needed imports added automatically.
+- **Nested email folders** mirror into a nested registry — `emails/auth/password/reset-password.svelte` → `emails.auth.password.resetPassword(props)`.
+- **Tailwind auto-detection**: the plugin finds your CSS entry and feeds its `@theme`/`@config` to the baker, so custom colors/fonts/spacing resolve with no extra config.
+
+### Fixed
+
+- Ported outstanding react-email fixes: `Body` Yahoo/AOL inner-`<td>` wrapper + margin/padding reset, `Link`/`Button` `text-decoration-line` (narrowed reset), `withMargin` merges all margin shorthands, numeric-guarded margin units, `Button` non-`px` padding via `convertToPx`, and `toPlainText` defaulting `wordwrap: false`.
+- Tailwind baker: hoisted variant rules emit `!important` (so `sm:`/`hover:` reliably override the inlined base); `@property`-registered defaults are resolved (`border`/`divide-x` no longer leak `var(--tw-*)`); `shadow-*`/`ring-*` resolve from their rule-local custom properties; and `rgb(r g b / a)` alpha is preserved.
+
 ## 0.1.1 — 2026-06-17
 
 ### Changed

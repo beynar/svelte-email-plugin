@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 	import type { HTMLAnchorAttributes } from 'svelte/elements';
-	import { parsePadding, pxToPt, styleToString } from '../style.js';
+	import { convertToPx, parsePadding, pxToPt, styleToString } from '../style.js';
 	import type { CSSProperties } from '../types.js';
 
 	// `href`/`target` flow through `...rest`, so the props extend the anchor
@@ -31,24 +31,36 @@
 		return [computeRequiredFontWidth(), smallestSpaceCount] as const;
 	}
 
-	const toPx = (value: string | number) => parseFloat(String(value).replace('px', ''));
-
-	// `parsePadding` takes a shorthand, not a style object, so resolve the four
-	// sides ourselves: start from the `padding` shorthand (if any), then let any
-	// explicit longhand override its side.
-	const base = $derived(
-		style.padding !== undefined
-			? parsePadding(style.padding)
-			: { paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0 }
-	);
-	const pt = $derived(style.paddingTop !== undefined ? toPx(style.paddingTop) : base.paddingTop);
-	const pr = $derived(
-		style.paddingRight !== undefined ? toPx(style.paddingRight) : base.paddingRight
-	);
-	const pb = $derived(
-		style.paddingBottom !== undefined ? toPx(style.paddingBottom) : base.paddingBottom
-	);
-	const pl = $derived(style.paddingLeft !== undefined ? toPx(style.paddingLeft) : base.paddingLeft);
+	// Resolve the four padding sides in px, honoring declaration order (a later
+	// `padding` shorthand or longhand wins) and converting non-px units — mirrors
+	// react-email's `parsePadding`. `convertToPx` turns `1em`→16, `2rem`→32, etc.,
+	// so non-px padding no longer collapses to a 1px value.
+	const sides = $derived.by(() => {
+		let top = 0;
+		let right = 0;
+		let bottom = 0;
+		let left = 0;
+		for (const [key, value] of Object.entries(style)) {
+			if (value === undefined || value === null) continue;
+			const v = value as string | number;
+			if (key === 'padding') {
+				({
+					paddingTop: top,
+					paddingRight: right,
+					paddingBottom: bottom,
+					paddingLeft: left
+				} = parsePadding(v));
+			} else if (key === 'paddingTop') top = convertToPx(v);
+			else if (key === 'paddingRight') right = convertToPx(v);
+			else if (key === 'paddingBottom') bottom = convertToPx(v);
+			else if (key === 'paddingLeft') left = convertToPx(v);
+		}
+		return { top, right, bottom, left };
+	});
+	const pt = $derived(sides.top);
+	const pr = $derived(sides.right);
+	const pb = $derived(sides.bottom);
+	const pl = $derived(sides.left);
 
 	const y = $derived(pt + pb);
 	const textRaise = $derived(pxToPt(y));
@@ -60,7 +72,7 @@
 	const anchorStyle = $derived(
 		styleToString({
 			lineHeight: '100%',
-			textDecoration: 'none',
+			textDecorationLine: 'none',
 			display: 'inline-block',
 			maxWidth: '100%',
 			msoPaddingAlt: '0px',

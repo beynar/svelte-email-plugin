@@ -233,6 +233,14 @@ function openTagEnd(source: string, node: AstNode): number {
 }
 
 /**
+ * Opening tag for an auto-injected `<Body>`. A bare email with no authored body
+ * would otherwise inherit the email client's serif default (Times New Roman), so
+ * the injected one sets an email-safe sans-serif stack. An authored `<Body>` is
+ * never touched, and child styles still override (it's just a sensible default).
+ */
+const INJECTED_BODY_OPEN = `<Body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif">`;
+
+/**
  * Inject the missing `Html`/`Head`/`Body` wrappers around the template, recording
  * any wrapper component names introduced. Insert-only (never moves author content).
  */
@@ -270,7 +278,7 @@ function injectWrappers(
 			const firstNonHead = htmlTop.find((n) => roleOf(n) !== 'Head');
 			if (firstNonHead) {
 				const last = htmlTop[htmlTop.length - 1];
-				magicString.appendLeft(firstNonHead.start!, '<Body>');
+				magicString.appendLeft(firstNonHead.start!, INJECTED_BODY_OPEN);
 				magicString.appendRight(last.end!, '</Body>');
 				need('Body');
 			}
@@ -295,13 +303,13 @@ function injectWrappers(
 	const bodyOpenPos = headIsFirst ? headTop!.end! : contentStart;
 
 	if (!hasBody && bodyOpenPos === contentStart) {
-		prefix += '\t<Body>';
+		prefix += '\t' + INJECTED_BODY_OPEN;
 		need('Body');
 	}
 	magicString.appendLeft(contentStart, prefix);
 
 	if (!hasBody && bodyOpenPos !== contentStart) {
-		magicString.appendLeft(bodyOpenPos, '\n\t<Body>');
+		magicString.appendLeft(bodyOpenPos, '\n\t' + INJECTED_BODY_OPEN);
 		need('Body');
 	}
 

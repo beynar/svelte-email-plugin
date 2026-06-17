@@ -57,8 +57,8 @@
 			}}
 		/>
 	</Head>
-	<Preview children="Welcome to Acme — let's get you set up." />
 	<Body style={main}>
+		<Preview children="Welcome to Acme — let's get you set up." />
 		<Container style={container}>
 			<Section>
 				<Img

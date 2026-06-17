@@ -60,4 +60,13 @@ describe('Markdown', () => {
 		// Custom style replaces the default h1 style object.
 		expect(html).toContain('<h1 style="color:red">');
 	});
+
+	it('applies the Spark Mail space fix to fenced and inline code', async () => {
+		const md = ['Inline `a  b`.', '', '```', 'def f():', '    return 1', '```'].join('\n');
+		const html = await renderToStaticString(Markdown, { children: md });
+		// NBSP+ZWJ+ZWSP present; neither the inline double-space nor the block indent survives.
+		expect(html).toContain(' ‍​');
+		expect(html).not.toContain('a  b');
+		expect(html).not.toContain('    return');
+	});
 });

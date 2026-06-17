@@ -171,7 +171,7 @@ describe('normalizeEmail — wrapping', () => {
 		expect(changed).toBe(true);
 		expect(code).toContain('<Html lang="en" dir="ltr">');
 		expect(code).toContain('<Head />');
-		expect(code).toContain('<Body><p>hi</p></Body>');
+		expect(code).toMatch(/<Body style="font-family:[^"]+sans-serif"><p>hi<\/p><\/Body>/);
 		expect(code).toContain('</Html>');
 		expect(code).toContain(`import { Body, Head, Html } from 'svelte-email-kit';`);
 		expectParses(code);
@@ -188,7 +188,7 @@ describe('normalizeEmail — wrapping', () => {
 	it('wraps non-Head children in Body when Html+Head present but Body missing', () => {
 		const src = `<script>\n\timport { Html, Head } from 'svelte-email-kit';\n</script>\n<Html>\n\t<Head />\n\t<p>x</p>\n</Html>`;
 		const { code } = wrapOnly(src);
-		expect(code).toContain('<Body>');
+		expect(code).toContain('<Body style="font-family:');
 		expect(code).toContain('</Body>');
 		expect(code).toContain('<Head />'); // not double-injected
 		expect(code.match(/<Head/g)?.length).toBe(1);
@@ -201,6 +201,7 @@ describe('normalizeEmail — wrapping', () => {
 		expect(code).toContain('<Html lang="en" dir="ltr">');
 		expect(code).toContain('<Head />');
 		expect(code.match(/<Body/g)?.length).toBe(1); // existing Body kept, none added
+		expect(code).not.toContain('font-family'); // an authored <Body> is never restyled
 		expectParses(code);
 	});
 
@@ -209,7 +210,7 @@ describe('normalizeEmail — wrapping', () => {
 		const { code } = wrapOnly(src);
 		expect(code).toContain('<Html lang="en" dir="ltr">');
 		expect(code.match(/<Head/g)?.length).toBe(1); // not duplicated
-		expect(code).toContain('<Body>');
+		expect(code).toContain('<Body style="font-family:');
 		expectParses(code);
 	});
 
@@ -230,7 +231,7 @@ describe('normalizeEmail — combined', () => {
 		expect(code).toContain('<Hr/>');
 		expect(code).toContain('<Html lang="en" dir="ltr">');
 		expect(code).toContain('<Head />');
-		expect(code).toContain('<Body>');
+		expect(code).toContain('<Body style="font-family:');
 		expect(code).toContain(
 			`import { Body, Head, Heading, Hr, Html, Section, Text } from 'svelte-email-kit';`
 		);

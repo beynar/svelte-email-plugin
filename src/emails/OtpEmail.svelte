@@ -49,8 +49,8 @@
 
 <Html lang="en" dir="ltr">
 	<Head />
-	<Preview children="Your Acme verification code" />
 	<Body style={main}>
+		<Preview children="Your Acme verification code" />
 		<Container style={container}>
 			<Section>
 				<Heading as="h1" style={heading}>Verify your sign-in</Heading>

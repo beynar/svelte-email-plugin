@@ -10,20 +10,26 @@ const DOCTYPE =
 
 /** One previewable email file. */
 interface EmailEntry {
-	/** Basename including extension, e.g. `WelcomeEmail.svelte`. */
+	/** Path relative to `dir` (POSIX), e.g. `auth/password/reset-password.svelte`. */
 	file: string;
-	/** Display label, e.g. `WelcomeEmail`. */
+	/** Display label, e.g. `auth/password/reset-password`. */
 	label: string;
 }
 
-/** List the `.svelte` emails in `dir` (excluding any generated index), sorted. */
-function listEmails(dir: string): EmailEntry[] {
+/** Recursively list the `.svelte` emails under `dir` as relative paths, sorted. */
+function listEmails(dir: string, baseDir: string = dir): EmailEntry[] {
 	if (!fs.existsSync(dir)) return [];
-	return fs
-		.readdirSync(dir, { withFileTypes: true })
-		.filter((e) => e.isFile() && e.name.endsWith('.svelte'))
-		.map((e) => ({ file: e.name, label: e.name.replace(/\.svelte$/, '') }))
-		.sort((a, b) => (a.file < b.file ? -1 : a.file > b.file ? 1 : 0));
+	const out: EmailEntry[] = [];
+	for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+		if (entry.isDirectory()) {
+			if (entry.name === 'node_modules' || entry.name.startsWith('.')) continue;
+			out.push(...listEmails(path.join(dir, entry.name), baseDir));
+		} else if (entry.isFile() && entry.name.endsWith('.svelte')) {
+			const file = path.relative(baseDir, path.join(dir, entry.name)).split(path.sep).join('/');
+			out.push({ file, label: file.replace(/\.svelte$/, '') });
+		}
+	}
+	return out.sort((a, b) => (a.file < b.file ? -1 : a.file > b.file ? 1 : 0));
 }
 
 const escapeHtml = (s: string) =>

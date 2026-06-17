@@ -13,7 +13,9 @@
 
 	let { href, target = '_blank', style, children, ...rest }: Props = $props();
 
-	const s = $derived(mergeStyle({ color: '#067df7', textDecoration: 'none' }, style));
+	// `textDecorationLine` (not the `textDecoration` shorthand) so the reset only
+	// clears the underline — not the decoration color/style/thickness too.
+	const s = $derived(mergeStyle({ color: '#067df7', textDecorationLine: 'none' }, style));
 </script>
 
 <!--

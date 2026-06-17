@@ -26,7 +26,7 @@ describe('Button', () => {
 		);
 
 		expect(html).toMatchInlineSnapshot(
-			`"<a href="https://example.com" target="_blank" style="line-height:100%;text-decoration:none;display:inline-block;max-width:100%;mso-padding-alt:0px;padding:12px 20px;padding-top:12px;padding-right:20px;padding-bottom:12px;padding-left:20px;"><!--[if mso]><i style="mso-font-width:500%;mso-text-raise:18" hidden>&#8202;&#8202;</i><![endif]--><span style="max-width:100%;display:inline-block;line-height:120%;mso-padding-alt:0px;mso-text-raise:9px;">Click me</span><!--[if mso]><i style="mso-font-width:500%" hidden>&#8202;&#8202;&#8203;</i><![endif]--></a>"`
+			`"<a href="https://example.com" target="_blank" style="line-height:100%;text-decoration-line:none;display:inline-block;max-width:100%;mso-padding-alt:0px;padding:12px 20px;padding-top:12px;padding-right:20px;padding-bottom:12px;padding-left:20px;"><!--[if mso]><i style="mso-font-width:500%;mso-text-raise:18" hidden>&#8202;&#8202;</i><![endif]--><span style="max-width:100%;display:inline-block;line-height:120%;mso-padding-alt:0px;mso-text-raise:9px;">Click me</span><!--[if mso]><i style="mso-font-width:500%" hidden>&#8202;&#8202;&#8203;</i><![endif]--></a>"`
 		);
 	});
 
@@ -40,7 +40,7 @@ describe('Button', () => {
 		expect(html).toContain('padding-top:0px;padding-right:0px;padding-bottom:0px;padding-left:0px');
 
 		expect(html).toMatchInlineSnapshot(
-			`"<a href="https://example.com" target="_blank" style="line-height:100%;text-decoration:none;display:inline-block;max-width:100%;mso-padding-alt:0px;padding-top:0px;padding-right:0px;padding-bottom:0px;padding-left:0px;"><!--[if mso]><i style="mso-font-width:0%;mso-text-raise:0" hidden></i><![endif]--><span style="max-width:100%;display:inline-block;line-height:120%;mso-padding-alt:0px;mso-text-raise:0px;">Click me</span><!--[if mso]><i style="mso-font-width:0%" hidden>&#8203;</i><![endif]--></a>"`
+			`"<a href="https://example.com" target="_blank" style="line-height:100%;text-decoration-line:none;display:inline-block;max-width:100%;mso-padding-alt:0px;padding-top:0px;padding-right:0px;padding-bottom:0px;padding-left:0px;"><!--[if mso]><i style="mso-font-width:0%;mso-text-raise:0" hidden></i><![endif]--><span style="max-width:100%;display:inline-block;line-height:120%;mso-padding-alt:0px;mso-text-raise:0px;">Click me</span><!--[if mso]><i style="mso-font-width:0%" hidden>&#8203;</i><![endif]--></a>"`
 		);
 	});
 });

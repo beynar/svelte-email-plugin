@@ -4,7 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createServer, type ViteDevServer } from 'vite';
 import { svelte } from '@sveltejs/vite-plugin-svelte';
-import { svelteMail } from './index.js';
+import { email } from './index.js';
 import { generateTailwindMap } from '../internal/tailwind/generate-map.js';
 
 /** Project root (two levels up from `src/lib/vite/`). */
@@ -30,12 +30,12 @@ const PROBE = (color: string) =>
 	`</Html>\n`;
 
 /**
- * Spin up a programmatic Vite server with the `svelteMail` plugin ordered
+ * Spin up a programmatic Vite server with the `email` plugin ordered
  * before `vite-plugin-svelte`, so `transformRequest` returns the compiled JS of
  * a *baked* email. Middleware mode + no HMR/watch keeps it headless and fast.
  */
 async function makeServer(
-	options: Parameters<typeof svelteMail>[0] = { dir: 'src/emails', forgiving: false }
+	options: Parameters<typeof email>[0] = { dir: 'src/emails', forgiving: false }
 ): Promise<ViteDevServer> {
 	return createServer({
 		configFile: false,
@@ -43,11 +43,11 @@ async function makeServer(
 		logLevel: 'silent',
 		server: { middlewareMode: true, hmr: false, watch: null },
 		resolve: { alias: { $lib: path.join(ROOT, 'src/lib') } },
-		plugins: [svelteMail(options), svelte()]
+		plugins: [email(options), svelte()]
 	});
 }
 
-describe('svelteMail — baked render through Vite', () => {
+describe('email — baked render through Vite', () => {
 	const probePath = path.join(EMAILS_DIR, '_it_probe.svelte');
 	const probeId = '/src/emails/_it_probe.svelte';
 
@@ -123,7 +123,7 @@ const FORGIVING_PROBE =
 	`\t<hr>\n` +
 	`</section>\n`;
 
-describe('svelteMail — forgiving baked render through Vite', () => {
+describe('email — forgiving baked render through Vite', () => {
 	const probePath = path.join(EMAILS_DIR, '_it_forgiving.svelte');
 	const probeId = '/src/emails/_it_forgiving.svelte';
 
@@ -162,7 +162,7 @@ describe('svelteMail — forgiving baked render through Vite', () => {
 	);
 });
 
-describe('svelteMail — equivalence to the legacy resolver oracle', () => {
+describe('email — equivalence to the legacy resolver oracle', () => {
 	/**
 	 * The pre-Phase-0 oracle: the legacy `{ tailwind: true }` runtime output for
 	 * representative class sets. Proves the build-time resolver reproduces the

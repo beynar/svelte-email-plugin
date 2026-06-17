@@ -38,7 +38,18 @@
 
 	// NBSP + ZWJ + ZWSP (U+00A0 U+200D U+200B): keeps collapsed/leading spaces
 	// visible across email clients, matching react-email's `'\xA0\u200D\u200B'`.
+	// Spark Mail collapses runs of literal spaces even inside `<pre>`; the NBSP is a
+	// space Spark won't eat and the zero-width joiner/space keep wrapping sane.
 	const SPACE_REPLACEMENT = '\u00A0\u200D\u200B';
+
+	/**
+	 * Escape code text for `{@html}` and apply the Spark Mail space fix. Used for
+	 * **all** code text \u2014 both whitespace between tokens and the inside of
+	 * highlighted tokens (string literals, comments) \u2014 so no run of spaces survives.
+	 */
+	function escapeCode(value: string): string {
+		return escapeHtml(value).replaceAll(' ', SPACE_REPLACEMENT);
+	}
 
 	/** Merge the theme styles for a token's type and any aliases. */
 	function stylesForToken(token: PrismToken): CSSProperties {
@@ -65,7 +76,7 @@
 				return `<span style="${styleAttr}">${tokenToHtml(content, styleForToken)}</span>`;
 			}
 			if (typeof content === 'string') {
-				return `<span style="${styleAttr}">${escapeHtml(content)}</span>`;
+				return `<span style="${styleAttr}">${escapeCode(content)}</span>`;
 			}
 			return (content as Array<string | PrismToken>)
 				.map((subToken) => tokenToHtml(subToken, styleForToken))
@@ -73,7 +84,7 @@
 		}
 
 		const styleAttr = parseCssInJsToInlineCss(inheritedStyles);
-		return `<span style="${styleAttr}">${escapeHtml(token).replaceAll(' ', SPACE_REPLACEMENT)}</span>`;
+		return `<span style="${styleAttr}">${escapeCode(token)}</span>`;
 	}
 
 	// React strips `undefined` style values before they reach the DOM; our

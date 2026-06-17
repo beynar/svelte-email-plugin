@@ -1,17 +1,23 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 	import type { HTMLAttributes } from 'svelte/elements';
-	import { mergeStyle } from '../style.js';
+	import { mergeStyle, splitBodyStyle } from '../style.js';
 	import type { Style } from '../types.js';
 
 	interface Props extends Omit<HTMLAttributes<HTMLBodyElement>, 'style'> {
+		lang?: HTMLAttributes<HTMLBodyElement>['lang'];
+		dir?: HTMLAttributes<HTMLBodyElement>['dir'];
 		style?: Style;
 		children?: Snippet;
 	}
 
-	let { style, children, ...rest }: Props = $props();
+	let { lang = 'en', dir = 'ltr', style, children, ...rest }: Props = $props();
 
-	const s = $derived(mergeStyle(style));
+	// Yahoo and AOL convert `<body>` to a `<div>` and drop its styles, so the real
+	// styling lives on an inner `<td>` (`cell`); the `<body>` keeps only background
+	// and zeroes any author margin/padding. See react-email#662.
+	const merged = $derived(mergeStyle(style));
+	const split = $derived(splitBodyStyle(merged));
 </script>
 
 <!--
@@ -22,6 +28,12 @@
 	the email document model — so it is disabled here intentionally.
 -->
 <!-- eslint-disable-next-line svelte/no-raw-special-elements -->
-<body {...rest} style={s || undefined}>
-	{@render children?.()}
+<body {...rest} {dir} {lang} style={split.body || undefined}>
+	<table border="0" width="100%" cellpadding="0" cellspacing="0" role="presentation" align="center">
+		<tbody>
+			<tr>
+				<td {dir} {lang} style={split.cell || undefined}>{@render children?.()}</td>
+			</tr>
+		</tbody>
+	</table>
 </body>

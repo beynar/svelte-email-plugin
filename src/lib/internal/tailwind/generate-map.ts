@@ -107,8 +107,19 @@ export async function generateTailwindMap(
 	const { build } = await compile(input, { base: process.cwd(), loadStylesheet });
 	const ast = postcss.parse(build([...classSet]));
 
-	// Collect theme variables for resolution.
+	// Collect variables for resolution. `@property` *registered* custom properties
+	// (Tailwind v4 declares its internals like `--tw-border-style: solid` this way)
+	// are seeded first as defaults — without them, utilities such as `border`,
+	// `divide-x`, `ring-*` would inline an unresolved `var(--tw-…)` that email
+	// clients drop. Real `:root`/`:host` theme values then override these.
 	const vars: Record<string, string> = {};
+	ast.walkAtRules('property', (atRule: AtRule) => {
+		const prop = atRule.params.trim();
+		if (!prop.startsWith('--')) return;
+		atRule.walkDecls('initial-value', (d: Declaration) => {
+			vars[prop] = d.value;
+		});
+	});
 	ast.walkRules((rule: Rule) => {
 		if (/^:root|:host/.test(rule.selector)) {
 			rule.walkDecls((d: Declaration) => {
@@ -116,21 +127,21 @@ export async function generateTailwindMap(
 			});
 		}
 	});
-	const resolveVars = (value: string, depth = 0): string => {
+	const resolveVars = (value: string, scope: Record<string, string>, depth = 0): string => {
 		if (depth > 12) return value;
 		const out = value.replace(
 			/var\(\s*(--[\w-]+)\s*(?:,\s*([^()]*(?:\([^()]*\)[^()]*)*))?\)/g,
 			(whole, name: string, fallback?: string) => {
-				const v = vars[name];
-				if (v && v !== 'initial') return resolveVars(v, depth + 1);
-				if (fallback != null) return resolveVars(fallback.trim(), depth + 1);
+				const v = scope[name];
+				if (v && v !== 'initial') return resolveVars(v, scope, depth + 1);
+				if (fallback != null) return resolveVars(fallback.trim(), scope, depth + 1);
 				return whole;
 			}
 		);
-		return out === value ? out : resolveVars(out, depth + 1);
+		return out === value ? out : resolveVars(out, scope, depth + 1);
 	};
-	const processValue = (v: string): string => {
-		let out = resolveVars(v);
+	const processValue = (v: string, scope: Record<string, string>): string => {
+		let out = resolveVars(v, scope);
 		// `rounded-full` etc. emit `calc(infinity * 1px)`; react-email maps it to `9999px`.
 		out = out.replace(/calc\(\s*infinity\s*\*\s*1px\s*\)/gi, '9999px');
 		out = convertOklch(out);
@@ -143,10 +154,23 @@ export async function generateTailwindMap(
 
 	/** Direct (non-nested) declarations of a rule/at-rule, processed + logical-expanded. */
 	const directDecls = (node: Container): Array<[string, string]> => {
+		// A rule may set custom properties it then consumes in the same rule —
+		// `.shadow-lg`/`.ring-2` declare `--tw-shadow`/`--tw-ring-shadow` and reference
+		// them in `box-shadow`. Layer those local values over the global theme/@property
+		// defaults so the shadow resolves to a real value instead of the transparent
+		// `0 0 #0000` initial-value.
+		let scope = vars;
+		node.each((child: ChildNode) => {
+			if (child.type === 'decl' && child.prop.startsWith('--')) {
+				if (scope === vars) scope = { ...vars };
+				scope[child.prop] = child.value;
+			}
+		});
 		const out: Array<[string, string]> = [];
 		node.each((child: ChildNode) => {
 			if (child.type === 'decl' && !child.prop.startsWith('--')) {
-				for (const pair of expandLogical(child.prop, processValue(child.value))) out.push(pair);
+				for (const pair of expandLogical(child.prop, processValue(child.value, scope)))
+					out.push(pair);
 			}
 		});
 		return out;
@@ -161,7 +185,11 @@ export async function generateTailwindMap(
 			} else {
 				const san = sanitizeClass(cls);
 				map.rename[cls] = san;
-				let inner = `.${san}${pseudo}{${decls.map(([p, v]) => `${p}:${v}`).join(';')}}`;
+				// `!important` so the hoisted variant rule beats the base utility we
+				// inlined onto the element's `style` (inline styles otherwise win on
+				// specificity, silently killing `sm:`/`hover:` overrides). Mirrors
+				// react-email's `sanitizeNonInlinableRules`.
+				let inner = `.${san}${pseudo}{${decls.map(([p, v]) => `${p}:${v} !important`).join(';')}}`;
 				for (let i = media.length - 1; i >= 0; i--)
 					inner = `@media ${convertMediaParams(media[i])}{${inner}}`;
 				map.hoist[san] = (map.hoist[san] ?? '') + inner;

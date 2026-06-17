@@ -3,7 +3,7 @@ import { createServer, type ViteDevServer } from 'vite';
 import { svelte } from '@sveltejs/vite-plugin-svelte';
 import { resolve } from 'node:path';
 import type { Server } from 'node:http';
-import { svelteMail } from './index.js';
+import { email } from './index.js';
 import { startPreviewServer } from './preview-server.js';
 
 const root = process.cwd();
@@ -20,7 +20,7 @@ beforeAll(async () => {
 		configFile: false,
 		resolve: { alias: { $lib: resolve(root, 'src/lib') } },
 		server: { middlewareMode: true, hmr: false, watch: null },
-		plugins: [svelteMail({ dir: 'src/emails' }), svelte()]
+		plugins: [email({ dir: 'src/emails' }), svelte()]
 	});
 	server = startPreviewServer(vite, 0, emailsDir);
 	await new Promise<void>((r) => server.on('listening', () => r()));

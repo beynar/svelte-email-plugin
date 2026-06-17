@@ -58,71 +58,128 @@ function safeIdentifier(name: string, fallback: string): string {
 	return name;
 }
 
-/** One resolved registry entry. */
-interface Entry {
-	/** Original `.svelte` basename, used for the relative import path. */
-	fileName: string;
-	/** camelCase registry key (unique). */
-	key: string;
-	/** PascalCase import identifier (unique). */
+/** A single email at a leaf of the registry tree. */
+interface Leaf {
+	/** Original `.svelte` file stem, the basis for the (per-folder) registry key. */
+	stem: string;
+	/** PascalCase import identifier (globally unique across the file). */
 	ident: string;
+	/** Relative import path from the registry file, e.g. `./auth/reset.svelte`. */
+	importPath: string;
+}
+
+/** A folder in the registry tree: sub-folders (by raw name) plus its own emails. */
+interface TreeNode {
+	folders: Map<string, TreeNode>;
+	leaves: Leaf[];
+}
+
+const newNode = (): TreeNode => ({ folders: new Map(), leaves: [] });
+
+/**
+ * Serialize a tree node to a (nested) object literal. Keys are camel-cased and
+ * de-duplicated **per folder level** (sub-folders and emails share a namespace);
+ * children are assigned keys in raw-name order (deterministic suffixing) and
+ * emitted in key order.
+ */
+function serializeNode(node: TreeNode, depth: number): string {
+	const indent = '\t'.repeat(depth);
+	const closeIndent = '\t'.repeat(depth - 1);
+
+	type Child =
+		| { rawName: string; key: string; kind: 'folder'; node: TreeNode }
+		| { rawName: string; key: string; kind: 'leaf'; leaf: Leaf };
+
+	type RawChild =
+		| { rawName: string; kind: 'folder'; node: TreeNode }
+		| { rawName: string; kind: 'leaf'; leaf: Leaf };
+
+	const raw: RawChild[] = [
+		...[...node.folders].map(
+			([rawName, child]): RawChild => ({ rawName, kind: 'folder', node: child })
+		),
+		...node.leaves.map((leaf): RawChild => ({ rawName: leaf.stem, kind: 'leaf', leaf }))
+	];
+	// Assign keys in raw-name order so suffixes are deterministic…
+	raw.sort((a, b) => (a.rawName < b.rawName ? -1 : a.rawName > b.rawName ? 1 : 0));
+	const used = new Set<string>();
+	const children: Child[] = raw.map((child) => {
+		const base = safeIdentifier(toCamelCase(tokenize(child.rawName)), 'email');
+		let key = base;
+		let suffix = 2;
+		while (used.has(key)) key = `${base}${suffix++}`;
+		used.add(key);
+		return child.kind === 'folder'
+			? { rawName: child.rawName, key, kind: 'folder', node: child.node }
+			: { rawName: child.rawName, key, kind: 'leaf', leaf: child.leaf };
+	});
+	if (children.length === 0) return '{}';
+	// …then emit in key order for a stable, readable file.
+	children.sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0));
+
+	const body = children.map((child, i) => {
+		const comma = i === children.length - 1 ? '' : ',';
+		const value =
+			child.kind === 'folder'
+				? serializeNode(child.node, depth + 1)
+				: `(props: ComponentProps<typeof ${child.leaf.ident}>) => render(${child.leaf.ident}, props)`;
+		return `${indent}${child.key}: ${value}${comma}`;
+	});
+	return `{\n${body.join('\n')}\n${closeIndent}}`;
 }
 
 /**
- * Build the typed registry source from a list of `.svelte` file names (relative
- * to the emails dir).
+ * Build the typed registry source from a list of `.svelte` paths **relative to the
+ * emails dir** — nested paths (`auth/password/reset-password.svelte`) are mirrored
+ * into nested objects, so `emails.auth.password.resetPassword(props)`.
  *
- * For each name a camelCase key (`order-receipt.svelte` → `orderReceipt`) and a
- * PascalCase import identifier (`OrderReceipt`) are derived. Keys and
- * identifiers are de-duplicated deterministically — colliding entries get a
- * numeric suffix (`welcome`, `welcome2`, …) — and entries are sorted by key for
- * stable output. Each entry returns `Promise<[html, text]>`, matching `render()`.
+ * Each path yields a camelCase key (`reset-password.svelte` → `resetPassword`),
+ * de-duplicated within its folder, and a globally-unique PascalCase import
+ * identifier. Each leaf returns `Promise<[html, text]>`, matching `render()`.
  *
  * An empty input still yields a valid file with `export const emails = {};`.
  */
-export function generateIndex(svelteFileNames: string[], options?: GenerateIndexOptions): string {
+export function generateIndex(sveltePaths: string[], options?: GenerateIndexOptions): string {
 	const importSource = options?.importSource ?? 'svelte-email-kit';
 
-	// Filter to `.svelte` files only and sort by basename for a stable starting
-	// order before de-duplication (so suffixes are assigned deterministically).
-	const names = svelteFileNames
-		.filter((name) => name.endsWith('.svelte'))
-		.slice()
+	// Normalize separators, keep `.svelte` only, sort for deterministic ident suffixes.
+	const paths = sveltePaths
+		.map((p) => p.split(/[\\/]/).join('/'))
+		.filter((p) => p.endsWith('.svelte'))
 		.sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
 
-	const usedKeys = new Set<string>();
+	const root = newNode();
 	const usedIdents = new Set<string>();
-	const entries: Entry[] = [];
+	const allLeaves: Leaf[] = [];
 
-	for (const fileName of names) {
+	for (const filePath of paths) {
+		const segments = filePath.split('/');
+		const fileName = segments.pop()!;
+		let node = root;
+		for (const segment of segments) {
+			let child = node.folders.get(segment);
+			if (!child) {
+				child = newNode();
+				node.folders.set(segment, child);
+			}
+			node = child;
+		}
+
 		const stem = fileName.slice(0, -'.svelte'.length);
-		const tokens = tokenize(stem);
-
-		const baseKey = safeIdentifier(toCamelCase(tokens), 'email');
-		const baseIdent = safeIdentifier(toPascalCase(tokens), 'Email');
-
-		// De-dupe key and identifier together so the same numeric suffix lands on
-		// both (`welcome`/`Welcome` → `welcome2`/`Welcome2`).
-		let key = baseKey;
+		const baseIdent = safeIdentifier(toPascalCase(tokenize(stem)), 'Email');
 		let ident = baseIdent;
 		let suffix = 2;
-		while (usedKeys.has(key) || usedIdents.has(ident)) {
-			key = `${baseKey}${suffix}`;
-			ident = `${baseIdent}${suffix}`;
-			suffix += 1;
-		}
-		usedKeys.add(key);
+		while (usedIdents.has(ident)) ident = `${baseIdent}${suffix++}`;
 		usedIdents.add(ident);
 
-		entries.push({ fileName, key, ident });
+		const leaf: Leaf = { stem, ident, importPath: `./${filePath}` };
+		node.leaves.push(leaf);
+		allLeaves.push(leaf);
 	}
-
-	// Sort final entries by key for stable output.
-	entries.sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0));
 
 	const lines: string[] = [HEADER];
 
-	if (entries.length === 0) {
+	if (allLeaves.length === 0) {
 		lines.push(`import type { ComponentProps } from 'svelte';`);
 		lines.push('');
 		lines.push('export const emails = {};');
@@ -132,18 +189,13 @@ export function generateIndex(svelteFileNames: string[], options?: GenerateIndex
 
 	lines.push(`import { render } from '${importSource}';`);
 	lines.push(`import type { ComponentProps } from 'svelte';`);
-	for (const { fileName, ident } of entries) {
-		lines.push(`import ${ident} from './${fileName}';`);
+	for (const { ident, importPath } of [...allLeaves].sort((a, b) =>
+		a.importPath < b.importPath ? -1 : 1
+	)) {
+		lines.push(`import ${ident} from '${importPath}';`);
 	}
 	lines.push('');
-	lines.push('export const emails = {');
-	entries.forEach(({ key, ident }, i) => {
-		const comma = i === entries.length - 1 ? '' : ',';
-		lines.push(
-			`\t${key}: (props: ComponentProps<typeof ${ident}>) => render(${ident}, props)${comma}`
-		);
-	});
-	lines.push('};');
+	lines.push(`export const emails = ${serializeNode(root, 1)};`);
 	lines.push('export type Emails = typeof emails;');
 
 	return lines.join('\n') + '\n';

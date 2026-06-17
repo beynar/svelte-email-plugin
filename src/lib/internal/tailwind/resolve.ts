@@ -43,7 +43,11 @@ export function convertOklch(value: string): string {
 /** Normalize modern space/slash `rgb()` syntax to the widely supported comma form. */
 export function normalizeRgb(value: string): string {
 	return value
-		.replace(/rgb\(\s*([\d.]+)\s+([\d.]+)\s+([\d.]+)\s*\/\s*[\d.]+%?\s*\)/g, 'rgb($1, $2, $3)')
+		.replace(
+			/rgb\(\s*([\d.]+)\s+([\d.]+)\s+([\d.]+)\s*\/\s*([\d.]+)(%?)\s*\)/g,
+			(_whole, r: string, g: string, b: string, a: string, pct: string) =>
+				`rgba(${r}, ${g}, ${b}, ${pct ? parseFloat(a) / 100 : a})`
+		)
 		.replace(/rgb\(\s*([\d.]+)\s+([\d.]+)\s+([\d.]+)\s*\)/g, 'rgb($1, $2, $3)');
 }
 

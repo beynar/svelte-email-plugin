@@ -1,16 +1,20 @@
 import { defineConfig } from 'vitest/config';
 import adapter from '@sveltejs/adapter-cloudflare';
 import { sveltekit } from '@sveltejs/kit/vite';
+import tailwindcss from '@tailwindcss/vite';
 // Dogfood the build-time Tailwind plugin. Imported relatively (this *is* the
 // `svelte-email-kit` package) — `enforce: 'pre'` orders it before vite-plugin-svelte
 // regardless of array position, so it bakes `src/emails/*.svelte` first.
-import { svelteMail } from './src/lib/vite/index.js';
+import { email } from './src/lib/vite/index.js';
 
 export default defineConfig({
 	plugins: [
+		// Real Tailwind v4 for the app (drives `src/app.css`). The email plugin below
+		// auto-detects that same `@theme` so emails resolve our custom `--color-brand`.
+		tailwindcss(),
 		// Dogfood: `importSource: '$lib/index.js'` so auto-injected component imports
 		// (and the generated registry) resolve through the repo's own `$lib` alias.
-		svelteMail({ dir: 'src/emails', importSource: '$lib/index.js', preview: { enabled: true } }),
+		email({ dir: 'src/emails', importSource: '$lib/index.js', preview: { enabled: true } }),
 		sveltekit({
 			compilerOptions: {
 				// Force runes mode for the project, except for libraries. Can be removed in svelte 6.
