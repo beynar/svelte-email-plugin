@@ -7,10 +7,10 @@
 	"author": "beynar <arnaud@derbey.dev>",
 	"repository": {
 		"type": "git",
-		"url": "git+https://github.com/beynar/svelte-email-kit.git"
+		"url": "git+https://github.com/beynar/svelte-plugin-mail.git"
 	},
-	"homepage": "https://github.com/beynar/svelte-email-kit#readme",
-	"bugs": "https://github.com/beynar/svelte-email-kit/issues",
+	"homepage": "https://github.com/beynar/svelte-plugin-mail#readme",
+	"bugs": "https://github.com/beynar/svelte-plugin-mail/issues",
 	"publishConfig": {
 		"access": "public"
 	},

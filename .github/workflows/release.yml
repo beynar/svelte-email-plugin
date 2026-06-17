@@ -5,7 +5,7 @@ name: Release
 # Prerequisites (one-time, done by the repo owner on npmjs.com):
 #   1. Go to the svelte-plugin-mail package settings on npmjs.com.
 #   2. Under "Trusted Publishing", add a GitHub Actions publisher pointing at:
-#        - Repository: beynar/svelte-email-kit
+#        - Repository: beynar/svelte-plugin-mail
 #        - Workflow filename: release.yml
 #   Once configured, no NPM_TOKEN secret is required: the npm CLI exchanges the
 #   GitHub OIDC token (id-token: write below) for a short-lived publish token.
