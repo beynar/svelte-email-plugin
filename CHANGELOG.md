@@ -10,7 +10,7 @@ Verification release — confirms CI trusted publishing under the renamed packag
 
 ### Changed
 
-- **Renamed to `svelte-plugin-mail`** (was `svelte-plugin-mail`). Update install + imports: `svelte-plugin-mail`, `svelte-plugin-mail/vite`, `svelte-plugin-mail/render`.
+- **Renamed to `svelte-plugin-mail`** (was `svelte-email-kit`). Update install + imports: `svelte-plugin-mail`, `svelte-plugin-mail/vite`, `svelte-plugin-mail/render`.
 - Internal cleanup only — **no public API or rendered-output changes**. Removed over-engineering surfaced by a repo audit:
   - Replaced two hand-rolled order-preserving dedupe helpers with `[...new Set()]` (`Set` iteration is already insertion-ordered).
   - Consolidated the duplicated recursive email-folder walker into one shared `collectSvelteFiles`, and the duplicated `tokenize` / `escapeHtml` helpers into single shared copies.
