@@ -23,7 +23,7 @@ function listEmails(dir: string): EmailEntry[] {
 }
 
 /**
- * Start the svelte-plugin-mail email preview server.
+ * Start the svelte-email-plugin email preview server.
  *
  * Serves a small UI listing every email in `dir` and rendering each one (baked
  * by the plugin's pre-transform, then `render`ed via Vite's SSR module graph so
@@ -143,7 +143,7 @@ function indexPage(emails: EmailEntry[]): string {
 		.join('');
 	const empty = emails.length === 0;
 
-	return `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>svelte-plugin-mail preview</title>
+	return `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>svelte-email-plugin preview</title>
 <style>
   :root { color-scheme: light dark; }
   * { box-sizing: border-box; }
@@ -167,7 +167,7 @@ function indexPage(emails: EmailEntry[]): string {
 </style></head>
 <body>
   <aside>
-    <div class="brand">svelte-plugin-mail<small>email preview</small></div>
+    <div class="brand">svelte-email-plugin<small>email preview</small></div>
     ${empty ? '<div class="empty">No .svelte emails found.</div>' : items}
   </aside>
   <main>

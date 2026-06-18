@@ -1,9 +1,9 @@
 name: Release
 
-# Publishes svelte-plugin-mail to npm using trusted publishing (OIDC).
+# Publishes svelte-email-plugin to npm using trusted publishing (OIDC).
 #
 # Prerequisites (one-time, done by the repo owner on npmjs.com):
-#   1. Go to the svelte-plugin-mail package settings on npmjs.com.
+#   1. Go to the svelte-email-plugin package settings on npmjs.com.
 #   2. Under "Trusted Publishing", add a GitHub Actions publisher pointing at:
 #        - Repository: beynar/svelte-plugin-mail
 #        - Workflow filename: release.yml

@@ -20,6 +20,9 @@ importers:
       marked:
         specifier: ^18.0.5
         version: 18.0.5
+      postcss:
+        specifier: ^8.5.15
+        version: 8.5.15
       prismjs:
         specifier: ^1.30.0
         version: 1.30.0
@@ -69,9 +72,6 @@ importers:
       globals:
         specifier: ^17.6.0
         version: 17.6.0
-      postcss:
-        specifier: ^8.5.15
-        version: 8.5.15
       prettier:
         specifier: ^3.8.4
         version: 3.8.4

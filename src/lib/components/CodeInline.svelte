@@ -9,7 +9,7 @@
 	 * Orange.fr fallback: that client flattens the document so `<meta>` becomes a
 	 * sibling of body content, and the `meta ~ .cino` / `meta ~ .cio` rules then
 	 * swap which element is shown. As react-email notes, this only works when the
-	 * email has a `<Head>` containing `<meta>` tags (svelte-plugin-mail's `<Head>` does).
+	 * email has a `<Head>` containing `<meta>` tags (svelte-email-plugin's `<Head>` does).
 	 */
 	interface Props extends Omit<HTMLAttributes<HTMLElement>, 'style'> {
 		style?: Style;

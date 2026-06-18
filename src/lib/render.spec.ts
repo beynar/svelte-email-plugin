@@ -43,7 +43,7 @@ describe('plain text', () => {
 		// the <h1> heading is upper-cased by html-to-text, so match case-insensitively
 		expect(out).toMatch(/welcome, svelte!/i);
 		// non-heading body copy is preserved verbatim
-		expect(out).toContain("Thanks for joining svelte-plugin-mail. We're glad you're here.");
+		expect(out).toContain("Thanks for joining svelte-email-plugin. We're glad you're here.");
 		expect(out).not.toMatch(/<[a-z]/i);
 		// the hidden Preview text must never leak into plain text
 		expect(out).not.toContain('HIDDEN_PREVIEW_TEXT');

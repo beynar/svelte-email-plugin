@@ -26,7 +26,7 @@
 </script>
 
 <main>
-	<h1>svelte-plugin-mail playground</h1>
+	<h1>svelte-email-plugin playground</h1>
 	<p>Live previews of the example email templates rendered with <code>render()</code>.</p>
 	<ul>
 		{#each examples as example (example.href)}

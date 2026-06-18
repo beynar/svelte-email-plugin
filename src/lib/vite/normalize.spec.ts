@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { parse } from 'svelte/compiler';
 import { normalizeEmail, DEFAULT_REMAP_TABLE, type NormalizeOptions } from './normalize.js';
 
-const SOURCE = 'svelte-plugin-mail';
+const SOURCE = 'svelte-email-plugin';
 
 function opts(over: Partial<NormalizeOptions> = {}): NormalizeOptions {
 	return {
@@ -124,44 +124,44 @@ describe('normalizeEmail — import injection', () => {
 	it('injects one combined import for introduced components (no script)', () => {
 		const { code } = remapOnly('<section><p>x</p></section>');
 		expect(code).toMatch(
-			/<script>\s*import \{ Section, Text \} from 'svelte-plugin-mail';\s*<\/script>/
+			/<script>\s*import \{ Section, Text \} from 'svelte-email-plugin';\s*<\/script>/
 		);
 	});
 
 	it('prepends into an existing instance <script>', () => {
 		const { code } = remapOnly(`<script lang="ts">\n\tconst x = 1;\n</script>\n<p>{x}</p>`);
-		expect(code).toContain(`import { Text } from 'svelte-plugin-mail';`);
+		expect(code).toContain(`import { Text } from 'svelte-email-plugin';`);
 		expect(code).toContain('const x = 1;');
 		// only one <script> in the output
 		expect(code.match(/<script/g)?.length).toBe(1);
 	});
 
 	it('does not re-import a component already imported by its own name', () => {
-		const src = `<script>\n\timport { Text } from 'svelte-plugin-mail';\n</script>\n<p>x</p>`;
+		const src = `<script>\n\timport { Text } from 'svelte-email-plugin';\n</script>\n<p>x</p>`;
 		const { code } = remapOnly(src);
 		expect(code.match(/import \{ Text \}/g)?.length).toBe(1);
 	});
 
 	it('adds the canonical name even when the user aliased it', () => {
-		const src = `<script>\n\timport { Text as T } from 'svelte-plugin-mail';\n</script>\n<p>x</p>`;
+		const src = `<script>\n\timport { Text as T } from 'svelte-email-plugin';\n</script>\n<p>x</p>`;
 		const { code } = remapOnly(src);
 		// <p> → <Text>, and Text must be imported under its own name to resolve
 		expect(code).toContain('<Text>x</Text>');
-		expect(code).toContain(`import { Text } from 'svelte-plugin-mail';`);
+		expect(code).toContain(`import { Text } from 'svelte-email-plugin';`);
 	});
 
 	it('recognizes $lib/index.js as the library source', () => {
 		const src = `<script>\n\timport { Section } from '$lib/index.js';\n</script>\n<section><p>x</p></section>`;
 		const { code } = remapOnly(src);
 		// Section already imported (via $lib) → not re-imported; only Text added
-		expect(code).toContain(`import { Text } from 'svelte-plugin-mail';`);
+		expect(code).toContain(`import { Text } from 'svelte-email-plugin';`);
 		expect(code.match(/import \{ Section \}/g)?.length).toBe(1);
 	});
 
 	it('leaves a user import of a non-introduced component intact', () => {
-		const src = `<script>\n\timport { Button } from 'svelte-plugin-mail';\n</script>\n<p>x</p>`;
+		const src = `<script>\n\timport { Button } from 'svelte-email-plugin';\n</script>\n<p>x</p>`;
 		const { code } = remapOnly(src);
-		expect(code).toContain(`import { Button } from 'svelte-plugin-mail';`);
+		expect(code).toContain(`import { Button } from 'svelte-email-plugin';`);
 	});
 });
 
@@ -173,20 +173,20 @@ describe('normalizeEmail — wrapping', () => {
 		expect(code).toContain('<Head />');
 		expect(code).toMatch(/<Body style="font-family:[^"]+sans-serif"><p>hi<\/p><\/Body>/);
 		expect(code).toContain('</Html>');
-		expect(code).toContain(`import { Body, Head, Html } from 'svelte-plugin-mail';`);
+		expect(code).toContain(`import { Body, Head, Html } from 'svelte-email-plugin';`);
 		expectParses(code);
 	});
 
 	it('injects only Head when Html present but Head missing', () => {
-		const src = `<script>\n\timport { Html, Body } from 'svelte-plugin-mail';\n</script>\n<Html>\n\t<Body>x</Body>\n</Html>`;
+		const src = `<script>\n\timport { Html, Body } from 'svelte-email-plugin';\n</script>\n<Html>\n\t<Body>x</Body>\n</Html>`;
 		const { code } = wrapOnly(src);
 		expect(code).toContain('<Head />');
-		expect(code).toContain(`import { Head } from 'svelte-plugin-mail';`);
+		expect(code).toContain(`import { Head } from 'svelte-email-plugin';`);
 		expectParses(code);
 	});
 
 	it('wraps non-Head children in Body when Html+Head present but Body missing', () => {
-		const src = `<script>\n\timport { Html, Head } from 'svelte-plugin-mail';\n</script>\n<Html>\n\t<Head />\n\t<p>x</p>\n</Html>`;
+		const src = `<script>\n\timport { Html, Head } from 'svelte-email-plugin';\n</script>\n<Html>\n\t<Head />\n\t<p>x</p>\n</Html>`;
 		const { code } = wrapOnly(src);
 		expect(code).toContain('<Body style="font-family:');
 		expect(code).toContain('</Body>');
@@ -196,7 +196,7 @@ describe('normalizeEmail — wrapping', () => {
 	});
 
 	it('wraps an authored <Body> (no Html) in Html and injects a Head before it', () => {
-		const src = `<script>\n\timport { Body } from 'svelte-plugin-mail';\n</script>\n<Body>x</Body>`;
+		const src = `<script>\n\timport { Body } from 'svelte-email-plugin';\n</script>\n<Body>x</Body>`;
 		const { code } = wrapOnly(src);
 		expect(code).toContain('<Html lang="en" dir="ltr">');
 		expect(code).toContain('<Head />');
@@ -206,7 +206,7 @@ describe('normalizeEmail — wrapping', () => {
 	});
 
 	it('keeps an authored top-level Head as an Html-level sibling (no duplicate)', () => {
-		const src = `<script>\n\timport { Head } from 'svelte-plugin-mail';\n</script>\n<Head />\n<p>x</p>`;
+		const src = `<script>\n\timport { Head } from 'svelte-email-plugin';\n</script>\n<Head />\n<p>x</p>`;
 		const { code } = wrapOnly(src);
 		expect(code).toContain('<Html lang="en" dir="ltr">');
 		expect(code.match(/<Head/g)?.length).toBe(1); // not duplicated
@@ -233,7 +233,7 @@ describe('normalizeEmail — combined', () => {
 		expect(code).toContain('<Head />');
 		expect(code).toContain('<Body style="font-family:');
 		expect(code).toContain(
-			`import { Body, Head, Heading, Hr, Html, Section, Text } from 'svelte-plugin-mail';`
+			`import { Body, Head, Heading, Hr, Html, Section, Text } from 'svelte-email-plugin';`
 		);
 		expectParses(code);
 	});

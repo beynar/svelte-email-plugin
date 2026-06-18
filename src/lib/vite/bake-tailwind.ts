@@ -490,7 +490,7 @@ export function bakeTailwind(source: string, map: TailwindMap, filename?: string
 	if (hoistRules.length > 0) {
 		if (!headNode) {
 			throw new Error(
-				'svelte-plugin-mail: Tailwind produced responsive/stateful styles but the email has no <Head> to hoist them into.'
+				'svelte-email-plugin: Tailwind produced responsive/stateful styles but the email has no <Head> to hoist them into.'
 			);
 		}
 		const style = `<style>${hoistRules.join('')}</style>`;

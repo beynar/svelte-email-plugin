@@ -1,4 +1,4 @@
-# svelte-plugin-mail
+# svelte-email-plugin
 
 Build and send email-client-safe HTML emails with Svelte 5 components. A Vite plugin compiles a folder of `.svelte` emails — baking Tailwind classes to inline styles and generating a typed registry — so sending is one call returning `[html, text]`.
 
@@ -23,11 +23,10 @@ Build and send email-client-safe HTML emails with Svelte 5 components. A Vite pl
 ## Install
 
 ```sh
-pnpm add svelte-plugin-mail            # peer: svelte@^5
-pnpm add -D tailwindcss@^4 postcss   # build-time only (Tailwind baking)
+pnpm add svelte-email-plugin   # peer: svelte@^5
 ```
 
-`marked` (Markdown) and `prismjs` (CodeBlock) are bundled.
+`marked` (Markdown), `prismjs` (CodeBlock), and `postcss` (Tailwind baking) are bundled. Baking Tailwind classes also uses your project's `tailwindcss@^4` (an optional peer — you already have it).
 
 ## Setup
 
@@ -35,7 +34,7 @@ Add the plugin. It's `enforce: 'pre'`, so it bakes before vite-plugin-svelte reg
 
 ```ts
 // vite.config.ts
-import { email } from 'svelte-plugin-mail/vite';
+import { email } from 'svelte-email-plugin/vite';
 import { sveltekit } from '@sveltejs/kit/vite';
 
 export default {
@@ -61,7 +60,7 @@ Everything under `dir` is compiled. Use the components:
 ```svelte
 <!-- src/emails/welcome.svelte -->
 <script lang="ts">
-	import { Html, Head, Preview, Body, Container, Heading, Text, Button } from 'svelte-plugin-mail';
+	import { Html, Head, Preview, Body, Container, Heading, Text, Button } from 'svelte-email-plugin';
 
 	let { name = 'there' }: { name?: string } = $props();
 </script>
@@ -206,7 +205,7 @@ email({ dir: 'src/emails', forgiving: { remap: { tags: { table: 'Section', a: fa
 The registry is sugar over `render()`. Call it directly on any component:
 
 ```ts
-import { render } from 'svelte-plugin-mail';
+import { render } from 'svelte-email-plugin';
 import Welcome from './emails/welcome.svelte';
 
 const [html, text] = await render(Welcome, { name: 'Ada' }); // RenderResult = [html: string, text: string]
@@ -217,7 +216,7 @@ const [html, text] = await render(Welcome, { name: 'Ada' }); // RenderResult = [
 
 Destructure what you need: `const [html] = …` or `const [, text] = …`. The only option is `htmlToTextOptions`, forwarded to `html-to-text` for the text part.
 
-Helpers: `toPlainText(html, options?)`, `cleanSvelteMarkup(html)`, `styleToString`, `mergeStyle`, `withMargin`, `parsePadding`, `pxToPt`. The `svelte-plugin-mail/render` subpath imports only the render pipeline (no components).
+Helpers: `toPlainText(html, options?)`, `cleanSvelteMarkup(html)`, `styleToString`, `mergeStyle`, `withMargin`, `parsePadding`, `pxToPt`. The `svelte-email-plugin/render` subpath imports only the render pipeline (no components).
 
 ## Components
 
